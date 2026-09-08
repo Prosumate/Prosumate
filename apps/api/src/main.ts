@@ -4,9 +4,9 @@ import { logger } from '@prosumate/logger';
 import { seedDemoData } from '@prosumate/database';
 
 async function bootstrap() {
-  // Populate primary proprietary account data
+  // Initialize pristine fresh database (0 demo contacts, 0 dummy funnels/conversations)
   seedDemoData();
-  logger.info('Primary user (Prosumateai@gmail.com) successfully initialized');
+  logger.info('Pristine database initialized with 0 demo records for Prosumateai@gmail.com');
 
   const app = buildApp();
 
