@@ -38,7 +38,18 @@ export function buildApp(): FastifyInstance {
   });
 
   app.register(cors, {
-    origin: [config.allowCrossOrigin, 'http://localhost:3000', 'http://127.0.0.1:3000'],
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+      if (
+        origin.includes('localhost') ||
+        origin.includes('127.0.0.1') ||
+        origin.includes('railway.app') ||
+        origin === config.allowCrossOrigin
+      ) {
+        return cb(null, true);
+      }
+      return cb(null, false);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });

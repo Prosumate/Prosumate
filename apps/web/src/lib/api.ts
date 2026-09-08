@@ -1,4 +1,12 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+function getApiUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.includes('localhost')) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  if (typeof window !== 'undefined' && window.location.hostname.includes('railway.app')) {
+    return 'https://prosumateapi-production.up.railway.app';
+  }
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+}
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -44,7 +52,7 @@ class ApiClient {
     };
 
     try {
-      const response = await fetch(`${API_URL}${endpoint}`, {
+      const response = await fetch(`${getApiUrl()}${endpoint}`, {
         ...options,
         headers,
       });
