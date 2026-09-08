@@ -27,12 +27,28 @@ import {
   Share2,
   Check,
   Search,
+  GripVertical,
+  Columns,
+  Grid,
+  CreditCard,
+  HelpCircle,
+  Sliders,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import {
   WEBSITE_TEMPLATES,
   TEMPLATE_CATEGORIES,
   WebsiteTemplate,
 } from '@/lib/website-templates';
+import {
+  GHL_SECTION_CATEGORIES,
+  GHL_SECTION_TEMPLATES,
+  GhlSectionTemplate,
+  GhlColumnItem,
+  GhlPricingTier,
+  GhlFaqItem,
+} from '@/lib/ghl-section-templates';
 
 const STEP_TYPES = [
   { type: 'opt_in', label: 'Opt-in / Lead Capture', desc: 'Collect contact details with form' },
@@ -43,10 +59,14 @@ const STEP_TYPES = [
 ];
 
 const BLOCK_TYPES = [
+  { type: 'container', label: 'Layout Container (1-Col)', icon: Layout },
+  { type: 'columns', label: 'Columns Grid (2-4 Cols)', icon: Columns },
   { type: 'hero', label: 'Hero Section', icon: Layout },
   { type: 'features', label: 'Features Grid', icon: Sparkles },
   { type: 'form_embed', label: 'Embedded Lead Form', icon: FileText },
   { type: 'testimonials', label: 'Social Proof / Testimonials', icon: Star },
+  { type: 'pricing', label: 'Pricing Table Matrix', icon: CreditCard },
+  { type: 'faq', label: 'FAQ Collapsible Accordion', icon: HelpCircle },
   { type: 'cta', label: 'Call to Action Banner', icon: ArrowRight },
   { type: 'video', label: 'Video Showcase', icon: Video },
 ];
@@ -67,6 +87,15 @@ export default function FunnelsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [previewTemplate, setPreviewTemplate] = useState<WebsiteTemplate | null>(null);
   const [isDeployingTemplate, setIsDeployingTemplate] = useState(false);
+
+  // GHL Section Templates Modal
+  const [showSectionTemplatesModal, setShowSectionTemplatesModal] = useState(false);
+  const [selectedSectionCategory, setSelectedSectionCategory] = useState<string>('all');
+  const [insertSectionIndex, setInsertSectionIndex] = useState<number | null>(null);
+
+  // Drag-and-Drop & Reordering States
+  const [draggedBlockIndex, setDraggedBlockIndex] = useState<number | null>(null);
+  const [dragOverBlockIndex, setDragOverBlockIndex] = useState<number | null>(null);
 
   // Block Editing State & Modals
   const [editingBlock, setEditingBlock] = useState<any | null>(null);
@@ -276,6 +305,27 @@ export default function FunnelsPage() {
         { title: 'High-Converting Layout', description: 'Engineered for maximal visitor engagement.' },
         { title: 'Real-time CRM Sync', description: 'Leads automatically map to your contact list.' },
       ];
+    } else if (newBlock.type === 'container') {
+      blockSettings.columnsCount = 1;
+      blockSettings.columns = [
+        { title: newBlock.title, description: newBlock.subtitle || 'Container content block' },
+      ];
+    } else if (newBlock.type === 'columns') {
+      blockSettings.columnsCount = 2;
+      blockSettings.columns = [
+        { title: 'Column 1', description: 'Primary value proposition' },
+        { title: 'Column 2', description: 'Secondary feature or form' },
+      ];
+    } else if (newBlock.type === 'pricing') {
+      blockSettings.pricingTiers = [
+        { name: 'Starter', price: '$99', period: '/mo', features: ['Core Feature 1', 'Core Feature 2'], buttonText: 'Choose Plan' },
+        { name: 'Professional', price: '$299', period: '/mo', features: ['Unlimited Access', 'Priority Support'], buttonText: 'Get Started', popular: true },
+      ];
+    } else if (newBlock.type === 'faq') {
+      blockSettings.faqItems = [
+        { question: 'What is included in this service?', answer: 'Complete end-to-end setup, hosting, and CRM synchronization.' },
+        { question: 'How do we get started?', answer: 'Simply submit the onboarding form and our team will be in touch.' },
+      ];
     }
 
     const updatedBlocks = [
@@ -465,6 +515,156 @@ export default function FunnelsPage() {
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Error deleting funnel');
+    }
+  };
+
+  // Drag-and-drop & Reordering Handlers
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedBlockIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', index.toString());
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverBlockIndex !== index) {
+      setDragOverBlockIndex(index);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    const sourceIndex = draggedBlockIndex;
+    setDraggedBlockIndex(null);
+    setDragOverBlockIndex(null);
+
+    if (sourceIndex === null || sourceIndex === targetIndex || !activeFunnel || !locationId) return;
+
+    const currentStep = activeFunnel.steps[activeStepIndex];
+    if (!currentStep || !currentStep.blocks) return;
+
+    const updatedBlocks = [...currentStep.blocks];
+    const [movedBlock] = updatedBlocks.splice(sourceIndex, 1);
+    updatedBlocks.splice(targetIndex, 0, movedBlock);
+
+    const reorderedBlocks = updatedBlocks.map((b: any, idx: number) => ({ ...b, order: idx }));
+    const updatedSteps = activeFunnel.steps.map((s: any, idx: number) =>
+      idx === activeStepIndex ? { ...s, blocks: reorderedBlocks } : s
+    );
+
+    setActiveFunnel({ ...activeFunnel, steps: updatedSteps });
+
+    try {
+      const res = await api.updateFunnel(locationId, activeFunnel.id, { steps: updatedSteps });
+      if (res.success && res.data) {
+        setActiveFunnel(res.data);
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to reorder blocks');
+    }
+  };
+
+  const handleMoveBlock = async (index: number, direction: 'up' | 'down') => {
+    if (!activeFunnel || !locationId) return;
+    const currentStep = activeFunnel.steps[activeStepIndex];
+    if (!currentStep?.blocks) return;
+
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= currentStep.blocks.length) return;
+
+    const updatedBlocks = [...currentStep.blocks];
+    const temp = updatedBlocks[index];
+    updatedBlocks[index] = updatedBlocks[targetIndex];
+    updatedBlocks[targetIndex] = temp;
+
+    const reorderedBlocks = updatedBlocks.map((b: any, idx: number) => ({ ...b, order: idx }));
+    const updatedSteps = activeFunnel.steps.map((s: any, idx: number) =>
+      idx === activeStepIndex ? { ...s, blocks: reorderedBlocks } : s
+    );
+
+    setActiveFunnel({ ...activeFunnel, steps: updatedSteps });
+
+    try {
+      const res = await api.updateFunnel(locationId, activeFunnel.id, { steps: updatedSteps });
+      if (res.success && res.data) {
+        setActiveFunnel(res.data);
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to reorder block');
+    }
+  };
+
+  const handleDuplicateBlock = async (index: number) => {
+    if (!activeFunnel || !locationId) return;
+    const currentStep = activeFunnel.steps[activeStepIndex];
+    if (!currentStep?.blocks) return;
+
+    const blockToCopy = currentStep.blocks[index];
+    const duplicatedBlock = JSON.parse(JSON.stringify(blockToCopy));
+    duplicatedBlock.title = `${duplicatedBlock.title} (Copy)`;
+    delete duplicatedBlock.id;
+
+    const updatedBlocks = [...currentStep.blocks];
+    updatedBlocks.splice(index + 1, 0, duplicatedBlock);
+    const reorderedBlocks = updatedBlocks.map((b: any, idx: number) => ({ ...b, order: idx }));
+
+    const updatedSteps = activeFunnel.steps.map((s: any, idx: number) =>
+      idx === activeStepIndex ? { ...s, blocks: reorderedBlocks } : s
+    );
+
+    setActiveFunnel({ ...activeFunnel, steps: updatedSteps });
+
+    try {
+      const res = await api.updateFunnel(locationId, activeFunnel.id, { steps: updatedSteps });
+      if (res.success && res.data) {
+        setActiveFunnel(res.data);
+        setSuccessMessage('Section block duplicated');
+        setTimeout(() => setSuccessMessage(null), 3000);
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to duplicate block');
+    }
+  };
+
+  const handleOpenSectionTemplates = (insertAt?: number) => {
+    setInsertSectionIndex(insertAt !== undefined ? insertAt : null);
+    setShowSectionTemplatesModal(true);
+  };
+
+  const handleInsertSectionTemplate = async (template: GhlSectionTemplate) => {
+    if (!activeFunnel || !locationId) return;
+    const currentStep = activeFunnel.steps[activeStepIndex];
+    if (!currentStep) return;
+
+    const newBlockData = JSON.parse(JSON.stringify(template.block));
+    const currentBlocks = currentStep.blocks || [];
+    const updatedBlocks = [...currentBlocks];
+
+    if (insertSectionIndex !== null && insertSectionIndex >= 0 && insertSectionIndex <= updatedBlocks.length) {
+      updatedBlocks.splice(insertSectionIndex, 0, newBlockData);
+    } else {
+      updatedBlocks.push(newBlockData);
+    }
+
+    const reorderedBlocks = updatedBlocks.map((b: any, idx: number) => ({ ...b, order: idx }));
+    const updatedSteps = activeFunnel.steps.map((s: any, idx: number) =>
+      idx === activeStepIndex ? { ...s, blocks: reorderedBlocks } : s
+    );
+
+    setActiveFunnel({ ...activeFunnel, steps: updatedSteps });
+    setShowSectionTemplatesModal(false);
+    setInsertSectionIndex(null);
+
+    try {
+      const res = await api.updateFunnel(locationId, activeFunnel.id, { steps: updatedSteps });
+      if (res.success && res.data) {
+        setActiveFunnel(res.data);
+        setSuccessMessage(`Added "${template.name}" template section`);
+        setTimeout(() => setSuccessMessage(null), 3000);
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to add section template');
     }
   };
 
@@ -856,7 +1056,7 @@ export default function FunnelsPage() {
         activeFunnel && (
           <div className="space-y-6">
             {/* Builder Toolbar */}
-            <div className="p-4 rounded-2xl bg-surface-card border border-border flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="p-4 rounded-2xl bg-surface-card border border-border flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary-600/20 border border-primary-500/30 flex items-center justify-center text-primary-400">
                   <Layers className="w-5 h-5" />
@@ -872,7 +1072,7 @@ export default function FunnelsPage() {
                     <span>Public Route: /f/{activeFunnel.slug}</span>
                     <button
                       onClick={() => copyPublicLink(activeFunnel.slug)}
-                      className="text-primary-400 hover:underline text-[11px]"
+                      className="text-primary-400 hover:underline text-[11px] cursor-pointer"
                     >
                       {copiedSlug === activeFunnel.slug ? 'Copied URL!' : 'Copy Link'}
                     </button>
@@ -880,29 +1080,36 @@ export default function FunnelsPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => handleOpenSectionTemplates()}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-primary-600 to-indigo-600 hover:from-primary-500 hover:to-indigo-500 text-white shadow-md shadow-primary-500/25 transition-all cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Add GHL Section</span>
+                </button>
+                <button
+                  onClick={() => setShowAddBlockModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-surface-elevated hover:bg-surface-elevated/80 border border-border text-slate-200 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Blank Block
+                </button>
+                <button
+                  onClick={() => setShowAddStepModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-surface-elevated hover:bg-surface-elevated/80 border border-border text-slate-200 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add Step
+                </button>
                 <Link
                   href={`/f/${activeFunnel.slug}`}
                   target="_blank"
                   className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
-                  Preview Live Page
+                  Live Preview
                 </Link>
-                <button
-                  onClick={() => setShowAddStepModal(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-surface-elevated hover:bg-surface-elevated/80 border border-border text-slate-200 transition-colors cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Add Step
-                </button>
-                <button
-                  onClick={() => setShowAddBlockModal(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-primary-600 hover:bg-primary-500 text-white transition-all cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Add Block Section
-                </button>
                 <button
                   onClick={() => handleDeleteFunnel(activeFunnel.id)}
                   className="p-2 rounded-xl bg-surface-elevated hover:bg-rose-500/10 border border-border hover:border-rose-500/30 text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
@@ -929,7 +1136,7 @@ export default function FunnelsPage() {
                         key={step.id || idx}
                         className={`w-full p-3.5 rounded-2xl border transition-all flex items-center justify-between group ${
                           isSelected
-                            ? 'bg-primary-600/15 border-primary-500 text-white'
+                            ? 'bg-primary-600/15 border-primary-500 text-white shadow-sm'
                             : 'bg-surface-card border-border text-slate-300 hover:bg-surface-elevated/50'
                         }`}
                       >
@@ -973,80 +1180,349 @@ export default function FunnelsPage() {
               <div className="lg:col-span-3 space-y-4">
                 {activeFunnel.steps?.[activeStepIndex] && (
                   <>
+                    {/* Step Canvas Header */}
                     <div className="flex items-center justify-between border-b border-border pb-3">
                       <div>
                         <h3 className="font-bold text-base text-white">
                           {activeFunnel.steps[activeStepIndex].name}
                         </h3>
                         <p className="text-xs text-slate-400">
-                          {activeFunnel.steps[activeStepIndex].blocks?.length || 0} section blocks configured
+                          {activeFunnel.steps[activeStepIndex].blocks?.length || 0} modular sections (Drag cards to reorder)
                         </p>
                       </div>
 
-                      <button
-                        onClick={() => setShowAddBlockModal(true)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary-600 text-white hover:bg-primary-500 cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        Append Block
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleOpenSectionTemplates()}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-primary-600 to-indigo-600 hover:from-primary-500 hover:to-indigo-500 text-white shadow-sm cursor-pointer"
+                        >
+                          <Sparkles className="w-3 h-3 text-amber-300" />
+                          <span>Insert Template</span>
+                        </button>
+                        <button
+                          onClick={() => setShowAddBlockModal(true)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-surface-elevated hover:bg-surface-elevated/80 border border-border text-slate-200 cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Add Block</span>
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="space-y-4">
-                      {activeFunnel.steps[activeStepIndex].blocks?.map((block: any, bIdx: number) => (
-                        <div
-                          key={block.id || bIdx}
-                          className="p-5 rounded-2xl bg-surface-card border border-border space-y-3 hover:border-slate-700 transition-colors"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="w-5 h-5 rounded-full bg-surface-elevated border border-border flex items-center justify-center text-[10px] font-bold text-slate-400">
-                                {bIdx + 1}
-                              </span>
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary-500/10 text-primary-400 border border-primary-500/20 uppercase">
-                                {block.type.replace('_', ' ')}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => openEditBlock(block, bIdx)}
-                                className="flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold bg-surface-elevated hover:bg-surface-elevated/80 border border-border text-slate-200 hover:text-white transition-colors cursor-pointer"
-                              >
-                                <Edit3 className="w-3.5 h-3.5 text-primary-400" />
-                                Edit Block
-                              </button>
-                              <button
-                                onClick={() => handleDeleteBlock(bIdx)}
-                                className="p-1.5 rounded-xl text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                                title="Delete Block"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-
-                          <div>
-                            <h4 className="font-bold text-sm text-white">{block.title}</h4>
-                            {block.subtitle && (
-                              <p className="text-xs text-slate-400 mt-0.5">{block.subtitle}</p>
-                            )}
-                          </div>
-
-                          {/* Block Settings Preview */}
-                          <div className="p-3 rounded-xl bg-surface-elevated/40 border border-border/50 text-[11px] text-slate-400 space-y-1">
-                            {block.settings?.buttonText && (
-                              <div>Button Label: <strong className="text-slate-200">"{block.settings.buttonText}"</strong></div>
-                            )}
-                            {block.settings?.formId && (
-                              <div>Embedded Form ID: <strong className="text-primary-400 font-mono">{block.settings.formId}</strong></div>
-                            )}
-                            {block.settings?.items && (
-                              <div>Feature Items: <strong className="text-slate-200">{block.settings.items.length} cards</strong></div>
-                            )}
-                          </div>
+                    {/* Blocks Canvas List */}
+                    <div className="space-y-3">
+                      {(!activeFunnel.steps[activeStepIndex].blocks || activeFunnel.steps[activeStepIndex].blocks.length === 0) && (
+                        <div className="p-8 rounded-3xl bg-surface-card border border-dashed border-border text-center space-y-3">
+                          <p className="text-sm text-slate-400">This step has no sections yet.</p>
+                          <button
+                            onClick={() => handleOpenSectionTemplates()}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold cursor-pointer"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                            Browse GHL Section Templates
+                          </button>
                         </div>
-                      ))}
+                      )}
+
+                      {activeFunnel.steps[activeStepIndex].blocks?.map((block: any, bIdx: number) => {
+                        const isDragging = draggedBlockIndex === bIdx;
+                        const isDragOver = dragOverBlockIndex === bIdx;
+                        return (
+                          <React.Fragment key={block.id || bIdx}>
+                            <div
+                              draggable={true}
+                              onDragStart={(e) => handleDragStart(e, bIdx)}
+                              onDragOver={(e) => handleDragOver(e, bIdx)}
+                              onDrop={(e) => handleDrop(e, bIdx)}
+                              className={`p-5 rounded-2xl bg-surface-card border transition-all space-y-3 ${
+                                isDragging
+                                  ? 'opacity-40 border-dashed border-primary-500 scale-[0.99]'
+                                  : isDragOver
+                                  ? 'ring-2 ring-primary-500 border-primary-500 shadow-xl'
+                                  : 'border-border hover:border-slate-700'
+                              }`}
+                            >
+                              {/* Card Header Toolbar */}
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2">
+                                  {/* Drag Handle */}
+                                  <div
+                                    className="cursor-grab active:cursor-grabbing p-1 text-slate-500 hover:text-white rounded-lg hover:bg-surface-elevated transition-colors"
+                                    title="Drag section to reorder"
+                                  >
+                                    <GripVertical className="w-4 h-4" />
+                                  </div>
+
+                                  <span className="w-5 h-5 rounded-full bg-surface-elevated border border-border flex items-center justify-center text-[10px] font-bold text-slate-400">
+                                    {bIdx + 1}
+                                  </span>
+
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary-500/10 text-primary-400 border border-primary-500/20 uppercase flex items-center gap-1">
+                                    {block.type === 'container' || block.type === 'columns' ? (
+                                      <Columns className="w-3 h-3" />
+                                    ) : block.type === 'pricing' ? (
+                                      <CreditCard className="w-3 h-3" />
+                                    ) : block.type === 'faq' ? (
+                                      <HelpCircle className="w-3 h-3" />
+                                    ) : (
+                                      <Layout className="w-3 h-3" />
+                                    )}
+                                    <span>{block.type.replace('_', ' ')}</span>
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-1.5">
+                                  {/* Up / Down arrows */}
+                                  <div className="flex items-center bg-surface-elevated/70 rounded-xl p-0.5 border border-border">
+                                    <button
+                                      type="button"
+                                      disabled={bIdx === 0}
+                                      onClick={() => handleMoveBlock(bIdx, 'up')}
+                                      className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 rounded-lg hover:bg-surface-card transition-colors cursor-pointer"
+                                      title="Move Section Up"
+                                    >
+                                      <ChevronUp className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={bIdx === (activeFunnel.steps[activeStepIndex].blocks.length - 1)}
+                                      onClick={() => handleMoveBlock(bIdx, 'down')}
+                                      className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 rounded-lg hover:bg-surface-card transition-colors cursor-pointer"
+                                      title="Move Section Down"
+                                    >
+                                      <ChevronDown className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+
+                                  {/* Duplicate */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDuplicateBlock(bIdx)}
+                                    className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-surface-elevated border border-transparent hover:border-border transition-colors cursor-pointer"
+                                    title="Duplicate Section"
+                                  >
+                                    <Copy className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  {/* Edit */}
+                                  <button
+                                    type="button"
+                                    onClick={() => openEditBlock(block, bIdx)}
+                                    className="flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-semibold bg-surface-elevated hover:bg-surface-elevated/80 border border-border text-slate-200 hover:text-white transition-colors cursor-pointer"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5 text-primary-400" />
+                                    Edit
+                                  </button>
+
+                                  {/* Delete */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteBlock(bIdx)}
+                                    className="p-1.5 rounded-xl text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                    title="Delete Section"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Title & Subtitle */}
+                              <div>
+                                <h4 className="font-bold text-sm text-white">{block.title}</h4>
+                                {block.subtitle && (
+                                  <p className="text-xs text-slate-400 mt-0.5">{block.subtitle}</p>
+                                )}
+                              </div>
+
+                              {/* Rich Preview: Multi-Column Container */}
+                              {(block.type === 'container' || block.type === 'columns') && (
+                                <div className="pt-2">
+                                  <div className={`grid gap-2 text-xs ${
+                                    (block.settings?.columnsCount || block.settings?.columns?.length || 2) === 1
+                                      ? 'grid-cols-1'
+                                      : (block.settings?.columnsCount || block.settings?.columns?.length || 2) === 2
+                                      ? 'grid-cols-1 sm:grid-cols-2'
+                                      : (block.settings?.columnsCount || block.settings?.columns?.length || 2) === 3
+                                      ? 'grid-cols-1 sm:grid-cols-3'
+                                      : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
+                                  }`}>
+                                    {(block.settings?.columns || []).map((col: any, cIdx: number) => (
+                                      <div key={cIdx} className="p-3 rounded-xl bg-surface-elevated/40 border border-border/50 space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-[10px] font-bold text-primary-400 uppercase tracking-wider">
+                                            {col.badgeText || `Col ${cIdx + 1}`}
+                                          </span>
+                                          <span className="text-[9px] text-slate-500 font-mono">#{cIdx + 1}</span>
+                                        </div>
+                                        <div className="font-semibold text-slate-200 text-xs truncate">
+                                          {col.title || 'Untitled Column'}
+                                        </div>
+                                        {col.description && (
+                                          <p className="text-[11px] text-slate-400 line-clamp-2">{col.description}</p>
+                                        )}
+                                        {col.buttonText && (
+                                          <div className="pt-1">
+                                            <span className="inline-block text-[10px] font-medium px-2 py-0.5 rounded bg-primary-500/10 text-primary-400 border border-primary-500/20">
+                                              {col.buttonText} →
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Rich Preview: Pricing Table */}
+                              {block.type === 'pricing' && (
+                                <div className="pt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                  {(block.settings?.pricingTiers || []).map((tier: any, tIdx: number) => (
+                                    <div
+                                      key={tIdx}
+                                      className={`p-3 rounded-xl border text-xs space-y-1 ${
+                                        tier.popular
+                                          ? 'bg-primary-900/20 border-primary-500/40'
+                                          : 'bg-surface-elevated/40 border-border/50'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <span className="font-bold text-slate-200">{tier.name}</span>
+                                        {tier.popular && (
+                                          <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-primary-500 text-white font-bold uppercase">
+                                            Popular
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="text-sm font-extrabold text-white">
+                                        {tier.price}{' '}
+                                        <span className="text-[10px] font-normal text-slate-400">{tier.period}</span>
+                                      </div>
+                                      <div className="text-[10px] text-slate-400">
+                                        {(tier.features || []).length} features included
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Rich Preview: FAQ */}
+                              {block.type === 'faq' && (
+                                <div className="pt-2 space-y-1.5">
+                                  {(block.settings?.faqItems || []).slice(0, 3).map((faq: any, fIdx: number) => (
+                                    <div
+                                      key={fIdx}
+                                      className="p-2.5 rounded-xl bg-surface-elevated/40 border border-border/50 text-xs flex items-center justify-between"
+                                    >
+                                      <span className="font-medium text-slate-300 truncate">{faq.question}</span>
+                                      <ChevronDown className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                                    </div>
+                                  ))}
+                                  {(block.settings?.faqItems || []).length > 3 && (
+                                    <div className="text-[10px] text-slate-500 text-center font-medium">
+                                      +{(block.settings?.faqItems || []).length - 3} more questions
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Rich Preview: Hero Header */}
+                              {block.type === 'hero' && (
+                                <div className="p-3 rounded-xl bg-surface-elevated/40 border border-border/50 text-[11px] text-slate-400 flex items-center justify-between">
+                                  <div>
+                                    {block.settings?.badgeText && (
+                                      <span className="text-primary-400 font-semibold">{block.settings.badgeText} • </span>
+                                    )}
+                                    <span>
+                                      CTA Button:{' '}
+                                      <strong className="text-slate-200">
+                                        "{block.settings?.buttonText || 'Get Started'}"
+                                      </strong>
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] px-2 py-0.5 rounded bg-surface-card text-slate-400">
+                                    Hero Header
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Rich Preview: Embedded Lead Form */}
+                              {block.type === 'form_embed' && (
+                                <div className="p-3 rounded-xl bg-surface-elevated/40 border border-border/50 text-[11px] text-slate-400 flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <FileText className="w-4 h-4 text-primary-400" />
+                                    <span>
+                                      Embedded Form ID:{' '}
+                                      <strong className="text-primary-400 font-mono">
+                                        {block.settings?.formId || 'No form attached'}
+                                      </strong>
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] px-2 py-0.5 rounded bg-surface-card text-slate-400">
+                                    Opt-in Form
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Rich Preview: Features */}
+                              {block.type === 'features' && (
+                                <div className="p-3 rounded-xl bg-surface-elevated/40 border border-border/50 text-[11px] text-slate-400">
+                                  <span>
+                                    Feature Cards:{' '}
+                                    <strong className="text-slate-200">
+                                      {(block.settings?.items || []).length} items configured
+                                    </strong>
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Rich Preview: Testimonials */}
+                              {block.type === 'testimonials' && (
+                                <div className="p-3 rounded-xl bg-surface-elevated/40 border border-border/50 text-[11px] text-slate-400">
+                                  <span>
+                                    Testimonials:{' '}
+                                    <strong className="text-slate-200">
+                                      {(block.settings?.items || []).length} client reviews
+                                    </strong>
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Rich Preview: CTA Banner */}
+                              {block.type === 'cta' && (
+                                <div className="p-3 rounded-xl bg-gradient-to-r from-primary-900/30 to-slate-900 border border-primary-500/30 text-[11px] text-slate-300 flex items-center justify-between">
+                                  <span>High-Conversion Banner CTA: "{block.settings?.buttonText || 'Get Started'}"</span>
+                                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                                </div>
+                              )}
+
+                              {/* Rich Preview: Video */}
+                              {block.type === 'video' && (
+                                <div className="p-3 rounded-xl bg-surface-elevated/40 border border-border/50 text-[11px] text-slate-400 flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Video className="w-4 h-4 text-primary-400" />
+                                    <span>Responsive 16:9 Video Player</span>
+                                  </div>
+                                  <span className="text-[10px] px-2 py-0.5 rounded bg-surface-card text-slate-400">
+                                    Video Block
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* In-between section insert button */}
+                            <div className="flex items-center justify-center my-1 opacity-20 hover:opacity-100 transition-opacity">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenSectionTemplates(bIdx + 1)}
+                                className="px-3 py-1 rounded-full bg-surface-elevated border border-dashed border-border hover:border-primary-500/50 text-[11px] text-slate-400 hover:text-primary-400 font-medium flex items-center gap-1.5 cursor-pointer transition-all shadow-sm"
+                              >
+                                <Plus className="w-3 h-3 text-primary-400" />
+                                <span>Insert Section Here</span>
+                              </button>
+                            </div>
+                          </React.Fragment>
+                        );
+                      })}
                     </div>
                   </>
                 )}
@@ -1715,6 +2191,410 @@ export default function FunnelsPage() {
                 </div>
               )}
 
+              {/* Container & Columns customizer */}
+              {(editingBlock.type === 'container' || editingBlock.type === 'columns') && (
+                <div className="space-y-4 pt-2 border-t border-border">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-semibold text-slate-300">Layout Columns</span>
+                      <p className="text-[11px] text-slate-400">Configure columns and responsive grid layout</p>
+                    </div>
+                    <div className="flex items-center gap-1 bg-surface-elevated p-1 rounded-xl border border-border">
+                      {[1, 2, 3, 4].map((cnt) => (
+                        <button
+                          key={cnt}
+                          type="button"
+                          onClick={() => {
+                            const currentCols = [...(editingBlock.settings?.columns || [])];
+                            while (currentCols.length < cnt) {
+                              currentCols.push({
+                                badgeText: `Column ${currentCols.length + 1}`,
+                                title: `Feature ${currentCols.length + 1}`,
+                                description: 'Highlight a core capability or offering.',
+                                buttonText: 'Learn More',
+                                buttonUrl: '#',
+                              });
+                            }
+                            setEditingBlock({
+                              ...editingBlock,
+                              settings: {
+                                ...editingBlock.settings,
+                                columnsCount: cnt,
+                                columns: currentCols.slice(0, cnt),
+                              },
+                            });
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                            (editingBlock.settings?.columnsCount || editingBlock.settings?.columns?.length || 2) === cnt
+                              ? 'bg-primary-600 text-white'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          {cnt} {cnt === 1 ? 'Col' : 'Cols'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                    {(editingBlock.settings?.columns || []).map((col: any, cIdx: number) => (
+                      <div key={cIdx} className="p-3.5 rounded-2xl bg-surface-card border border-border space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-primary-400 flex items-center gap-1.5">
+                            <Columns className="w-3.5 h-3.5" />
+                            Column {cIdx + 1}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const cols = editingBlock.settings.columns.filter((_: any, idx: number) => idx !== cIdx);
+                              setEditingBlock({
+                                ...editingBlock,
+                                settings: { ...editingBlock.settings, columns: cols, columnsCount: cols.length },
+                              });
+                            }}
+                            className="p-1 text-slate-500 hover:text-rose-400 cursor-pointer"
+                            title="Remove Column"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">Badge Text</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. Featured"
+                              value={col.badgeText || ''}
+                              onChange={(e) => {
+                                const cols = [...(editingBlock.settings?.columns || [])];
+                                cols[cIdx] = { ...cols[cIdx], badgeText: e.target.value };
+                                setEditingBlock({ ...editingBlock, settings: { ...editingBlock.settings, columns: cols } });
+                              }}
+                              className="w-full px-2.5 py-1.5 rounded-lg bg-surface-elevated border border-border text-white text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">Column Title</label>
+                            <input
+                              type="text"
+                              placeholder="Column Headline"
+                              value={col.title || ''}
+                              onChange={(e) => {
+                                const cols = [...(editingBlock.settings?.columns || [])];
+                                cols[cIdx] = { ...cols[cIdx], title: e.target.value };
+                                setEditingBlock({ ...editingBlock, settings: { ...editingBlock.settings, columns: cols } });
+                              }}
+                              className="w-full px-2.5 py-1.5 rounded-lg bg-surface-elevated border border-border text-white text-xs"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] text-slate-400 mb-0.5">Description / Body</label>
+                          <textarea
+                            rows={2}
+                            placeholder="Detailed text for this column..."
+                            value={col.description || ''}
+                            onChange={(e) => {
+                              const cols = [...(editingBlock.settings?.columns || [])];
+                              cols[cIdx] = { ...cols[cIdx], description: e.target.value };
+                              setEditingBlock({ ...editingBlock, settings: { ...editingBlock.settings, columns: cols } });
+                            }}
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-surface-elevated border border-border text-white text-xs"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">CTA Button Label</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. Get Started"
+                              value={col.buttonText || ''}
+                              onChange={(e) => {
+                                const cols = [...(editingBlock.settings?.columns || [])];
+                                cols[cIdx] = { ...cols[cIdx], buttonText: e.target.value };
+                                setEditingBlock({ ...editingBlock, settings: { ...editingBlock.settings, columns: cols } });
+                              }}
+                              className="w-full px-2.5 py-1.5 rounded-lg bg-surface-elevated border border-border text-white text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">CTA Target Link</label>
+                            <input
+                              type="text"
+                              placeholder="#form or https://..."
+                              value={col.buttonUrl || ''}
+                              onChange={(e) => {
+                                const cols = [...(editingBlock.settings?.columns || [])];
+                                cols[cIdx] = { ...cols[cIdx], buttonUrl: e.target.value };
+                                setEditingBlock({ ...editingBlock, settings: { ...editingBlock.settings, columns: cols } });
+                              }}
+                              className="w-full px-2.5 py-1.5 rounded-lg bg-surface-elevated border border-border text-white text-xs"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cols = [...(editingBlock.settings?.columns || [])];
+                        cols.push({
+                          badgeText: `Column ${cols.length + 1}`,
+                          title: `New Column ${cols.length + 1}`,
+                          description: 'Describe details for this column block.',
+                          buttonText: 'Learn More',
+                          buttonUrl: '#',
+                        });
+                        setEditingBlock({
+                          ...editingBlock,
+                          settings: {
+                            ...editingBlock.settings,
+                            columns: cols,
+                            columnsCount: cols.length,
+                          },
+                        });
+                      }}
+                      className="w-full py-2 rounded-xl border border-dashed border-border text-slate-400 hover:text-white hover:border-slate-500 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add Column
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Pricing Tiers customizer */}
+              {editingBlock.type === 'pricing' && (
+                <div className="space-y-4 pt-2 border-t border-border">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-semibold text-slate-300">Pricing Tiers</span>
+                      <p className="text-[11px] text-slate-400">Configure pricing options and features</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const tiers = [...(editingBlock.settings?.pricingTiers || [])];
+                        tiers.push({
+                          name: 'New Tier',
+                          price: '$99',
+                          period: '/ month',
+                          description: 'Perfect for growing businesses.',
+                          popular: false,
+                          buttonText: 'Select Plan',
+                          features: ['Feature 1', 'Feature 2', 'Feature 3'],
+                        });
+                        setEditingBlock({
+                          ...editingBlock,
+                          settings: { ...editingBlock.settings, pricingTiers: tiers },
+                        });
+                      }}
+                      className="text-xs text-primary-400 hover:text-primary-300 font-medium cursor-pointer"
+                    >
+                      + Add Tier
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                    {(editingBlock.settings?.pricingTiers || []).map((tier: any, tIdx: number) => (
+                      <div key={tIdx} className="p-3.5 rounded-2xl bg-surface-card border border-border space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-primary-400 flex items-center gap-1.5">
+                            <CreditCard className="w-3.5 h-3.5" />
+                            Tier {tIdx + 1}: {tier.name || 'Untitled'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const tiers = editingBlock.settings.pricingTiers.filter((_: any, idx: number) => idx !== tIdx);
+                              setEditingBlock({
+                                ...editingBlock,
+                                settings: { ...editingBlock.settings, pricingTiers: tiers },
+                              });
+                            }}
+                            className="p-1 text-slate-500 hover:text-rose-400 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">Plan Name</label>
+                            <input
+                              type="text"
+                              placeholder="Starter, Pro..."
+                              value={tier.name || ''}
+                              onChange={(e) => {
+                                const tiers = [...(editingBlock.settings?.pricingTiers || [])];
+                                tiers[tIdx] = { ...tiers[tIdx], name: e.target.value };
+                                setEditingBlock({ ...editingBlock, settings: { ...editingBlock.settings, pricingTiers: tiers } });
+                              }}
+                              className="w-full px-2.5 py-1.5 rounded-lg bg-surface-elevated border border-border text-white text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">Price</label>
+                            <input
+                              type="text"
+                              placeholder="$49"
+                              value={tier.price || ''}
+                              onChange={(e) => {
+                                const tiers = [...(editingBlock.settings?.pricingTiers || [])];
+                                tiers[tIdx] = { ...tiers[tIdx], price: e.target.value };
+                                setEditingBlock({ ...editingBlock, settings: { ...editingBlock.settings, pricingTiers: tiers } });
+                              }}
+                              className="w-full px-2.5 py-1.5 rounded-lg bg-surface-elevated border border-border text-white text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">Period</label>
+                            <input
+                              type="text"
+                              placeholder="/mo"
+                              value={tier.period || ''}
+                              onChange={(e) => {
+                                const tiers = [...(editingBlock.settings?.pricingTiers || [])];
+                                tiers[tIdx] = { ...tiers[tIdx], period: e.target.value };
+                                setEditingBlock({ ...editingBlock, settings: { ...editingBlock.settings, pricingTiers: tiers } });
+                              }}
+                              className="w-full px-2.5 py-1.5 rounded-lg bg-surface-elevated border border-border text-white text-xs"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={!!tier.popular}
+                              onChange={(e) => {
+                                const tiers = [...(editingBlock.settings?.pricingTiers || [])];
+                                tiers[tIdx] = { ...tiers[tIdx], popular: e.target.checked };
+                                setEditingBlock({ ...editingBlock, settings: { ...editingBlock.settings, pricingTiers: tiers } });
+                              }}
+                              className="rounded border-border text-primary-600 focus:ring-0"
+                            />
+                            Mark as Most Popular / Featured
+                          </label>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] text-slate-400 mb-0.5">Features (1 per line)</label>
+                          <textarea
+                            rows={3}
+                            placeholder="Feature 1&#10;Feature 2&#10;Feature 3"
+                            value={(tier.features || []).join('\n')}
+                            onChange={(e) => {
+                              const features = e.target.value.split('\n').filter((l) => l.trim().length > 0);
+                              const tiers = [...(editingBlock.settings?.pricingTiers || [])];
+                              tiers[tIdx] = { ...tiers[tIdx], features };
+                              setEditingBlock({ ...editingBlock, settings: { ...editingBlock.settings, pricingTiers: tiers } });
+                            }}
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-surface-elevated border border-border text-white text-xs font-mono"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[10px] text-slate-400 mb-0.5">Button Label</label>
+                            <input
+                              type="text"
+                              placeholder="Choose Plan"
+                              value={tier.buttonText || ''}
+                              onChange={(e) => {
+                                const tiers = [...(editingBlock.settings?.pricingTiers || [])];
+                                tiers[tIdx] = { ...tiers[tIdx], buttonText: e.target.value };
+                                setEditingBlock({ ...editingBlock, settings: { ...editingBlock.settings, pricingTiers: tiers } });
+                              }}
+                              className="w-full px-2.5 py-1.5 rounded-lg bg-surface-elevated border border-border text-white text-xs"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* FAQ Accordion customizer */}
+              {editingBlock.type === 'faq' && (
+                <div className="space-y-4 pt-2 border-t border-border">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-semibold text-slate-300">FAQ Questions & Answers</span>
+                      <p className="text-[11px] text-slate-400">Add questions that address buyer objections</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const items = [...(editingBlock.settings?.faqItems || [])];
+                        items.push({
+                          question: 'Frequently Asked Question',
+                          answer: 'Clear, concise answer explaining the details.',
+                        });
+                        setEditingBlock({
+                          ...editingBlock,
+                          settings: { ...editingBlock.settings, faqItems: items },
+                        });
+                      }}
+                      className="text-xs text-primary-400 hover:text-primary-300 font-medium cursor-pointer"
+                    >
+                      + Add Question
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                    {(editingBlock.settings?.faqItems || []).map((faq: any, fIdx: number) => (
+                      <div key={fIdx} className="p-3.5 rounded-2xl bg-surface-card border border-border space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <input
+                            type="text"
+                            placeholder="Question"
+                            value={faq.question || ''}
+                            onChange={(e) => {
+                              const items = [...(editingBlock.settings?.faqItems || [])];
+                              items[fIdx] = { ...items[fIdx], question: e.target.value };
+                              setEditingBlock({ ...editingBlock, settings: { ...editingBlock.settings, faqItems: items } });
+                            }}
+                            className="flex-1 px-2.5 py-1.5 rounded-lg bg-surface-elevated border border-border text-white text-xs font-semibold"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const items = editingBlock.settings.faqItems.filter((_: any, idx: number) => idx !== fIdx);
+                              setEditingBlock({
+                                ...editingBlock,
+                                settings: { ...editingBlock.settings, faqItems: items },
+                              });
+                            }}
+                            className="p-1 text-slate-500 hover:text-rose-400 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <textarea
+                          rows={2}
+                          placeholder="Detailed answer..."
+                          value={faq.answer || ''}
+                          onChange={(e) => {
+                            const items = [...(editingBlock.settings?.faqItems || [])];
+                            items[fIdx] = { ...items[fIdx], answer: e.target.value };
+                            setEditingBlock({ ...editingBlock, settings: { ...editingBlock.settings, faqItems: items } });
+                          }}
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-surface-elevated border border-border text-white text-xs"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end gap-2 pt-3 border-t border-border">
                 <button
                   type="button"
@@ -1732,6 +2612,167 @@ export default function FunnelsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: GHL Section Templates Library */}
+      {showSectionTemplatesModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <div className="w-full max-w-4xl max-h-[90vh] rounded-3xl bg-surface border border-border shadow-2xl flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-border flex items-start justify-between gap-4 bg-surface-card/40">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-primary-500/10 text-primary-400 border border-primary-500/20 uppercase tracking-wider">
+                    GHL Section Library
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    {insertSectionIndex !== null ? `Inserting at position #${insertSectionIndex + 1}` : 'Append to bottom'}
+                  </span>
+                </div>
+                <h3 className="font-bold text-white text-lg flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-400" />
+                  Website Section Templates
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Choose pre-built modular sections across layout containers, multi-column grids, heroes, pricing tables, and FAQs.
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  setShowSectionTemplatesModal(false);
+                  setInsertSectionIndex(null);
+                }}
+                className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-surface-elevated cursor-pointer transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Category Filter Tabs */}
+            <div className="px-6 py-3 border-b border-border bg-surface-elevated/20 flex items-center gap-2 overflow-x-auto scrollbar-none">
+              {GHL_SECTION_CATEGORIES.map((cat) => {
+                const isSelected = selectedSectionCategory === cat.id;
+                const count = cat.id === 'all'
+                  ? GHL_SECTION_TEMPLATES.length
+                  : GHL_SECTION_TEMPLATES.filter((t) => t.category === cat.id).length;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setSelectedSectionCategory(cat.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                      isSelected
+                        ? 'bg-primary-600 text-white font-semibold shadow-md shadow-primary-500/20'
+                        : 'bg-surface-card border border-border text-slate-400 hover:text-slate-200 hover:bg-surface-elevated'
+                    }`}
+                  >
+                    <span>{cat.label}</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                      isSelected ? 'bg-white/20 text-white' : 'bg-surface-elevated text-slate-500'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Templates Grid */}
+            <div className="p-6 overflow-y-auto space-y-4 flex-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {GHL_SECTION_TEMPLATES
+                  .filter((t) => selectedSectionCategory === 'all' || t.category === selectedSectionCategory)
+                  .map((template) => (
+                    <div
+                      key={template.id}
+                      className="p-5 rounded-2xl bg-surface-card border border-border hover:border-slate-600 transition-all flex flex-col justify-between space-y-3 group"
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-primary-500/10 text-primary-400 border border-primary-500/20">
+                            {template.categoryLabel}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono uppercase">
+                            {template.block.type.replace('_', ' ')}
+                          </span>
+                        </div>
+
+                        <div>
+                          <h4 className="font-bold text-sm text-white group-hover:text-primary-400 transition-colors">
+                            {template.name}
+                          </h4>
+                          <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                            {template.description}
+                          </p>
+                        </div>
+
+                        {/* Schematic Tag Pills */}
+                        <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                          <span className="px-2 py-0.5 rounded-md bg-surface-elevated border border-border/70 text-[10px] text-slate-300 font-medium">
+                            {template.categoryLabel}
+                          </span>
+                          {template.block.settings?.columnsCount && (
+                            <span className="px-2 py-0.5 rounded-md bg-surface-elevated border border-border/70 text-[10px] text-primary-400 font-medium">
+                              {template.block.settings.columnsCount} Columns
+                            </span>
+                          )}
+                          {template.block.settings?.pricingTiers && (
+                            <span className="px-2 py-0.5 rounded-md bg-surface-elevated border border-border/70 text-[10px] text-primary-400 font-medium">
+                              {template.block.settings.pricingTiers.length} Pricing Tiers
+                            </span>
+                          )}
+                          {template.block.settings?.faqItems && (
+                            <span className="px-2 py-0.5 rounded-md bg-surface-elevated border border-border/70 text-[10px] text-primary-400 font-medium">
+                              {template.block.settings.faqItems.length} FAQs
+                            </span>
+                          )}
+                          {template.block.settings?.items && (
+                            <span className="px-2 py-0.5 rounded-md bg-surface-elevated border border-border/70 text-[10px] text-primary-400 font-medium">
+                              {template.block.settings.items.length} Items
+                            </span>
+                          )}
+                          {template.block.settings?.buttonText && (
+                            <span className="px-2 py-0.5 rounded-md bg-surface-elevated border border-border/70 text-[10px] text-slate-300 font-medium truncate max-w-[150px]">
+                              CTA: {template.block.settings.buttonText}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-border/50 flex items-center justify-between">
+                        <span className="text-[11px] text-slate-400 font-mono truncate max-w-[200px]">
+                          "{template.block.title}"
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleInsertSectionTemplate(template)}
+                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold shadow-md shadow-primary-500/20 transition-all cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Insert Section</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-border bg-surface-elevated/20 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSectionTemplatesModal(false);
+                  setInsertSectionIndex(null);
+                }}
+                className="px-4 py-2 rounded-xl border border-border text-slate-300 hover:bg-surface-card cursor-pointer text-xs"
+              >
+                Close Library
+              </button>
+            </div>
           </div>
         </div>
       )}

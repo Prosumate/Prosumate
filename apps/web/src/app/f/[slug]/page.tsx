@@ -14,6 +14,12 @@ import {
   Lock,
   Globe,
   Layers,
+  ChevronDown,
+  ChevronUp,
+  Play,
+  HelpCircle,
+  CreditCard,
+  Video,
 } from 'lucide-react';
 
 export default function PublicFunnelPage() {
@@ -28,6 +34,7 @@ export default function PublicFunnelPage() {
   const [thankYouMessage, setThankYouMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [expandedFaqs, setExpandedFaqs] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!slug) return;
@@ -154,7 +161,7 @@ export default function PublicFunnelPage() {
               return (
                 <div key={block.id || bIdx} className="text-center space-y-5 pt-6">
                   {block.settings?.badgeText && (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary-500/10 text-primary-400 border border-primary-500/20 shadow-sm">
+                    <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-semibold bg-primary-500/10 text-primary-400 border border-primary-500/20 shadow-sm">
                       <Sparkles className="w-3.5 h-3.5" />
                       <span>{block.settings.badgeText}</span>
                     </div>
@@ -170,20 +177,110 @@ export default function PublicFunnelPage() {
                     </p>
                   )}
 
-                  {block.settings?.buttonText && (
-                    <div className="pt-2">
+                  <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                    {block.settings?.buttonText && (
                       <button
                         onClick={() => {
-                          const formEl = document.getElementById('funnel-embedded-form');
-                          if (formEl) formEl.scrollIntoView({ behavior: 'smooth' });
+                          const url = block.settings.buttonUrl;
+                          if (url && url.startsWith('#')) {
+                            const target = document.querySelector(url) || document.getElementById('funnel-embedded-form');
+                            if (target) target.scrollIntoView({ behavior: 'smooth' });
+                          } else if (url && url !== '#') {
+                            window.open(url, '_blank');
+                          } else {
+                            const formEl = document.getElementById('funnel-embedded-form');
+                            if (formEl) formEl.scrollIntoView({ behavior: 'smooth' });
+                          }
                         }}
                         className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary-600 hover:bg-primary-500 text-white font-semibold text-sm shadow-xl shadow-primary-500/25 transition-all cursor-pointer"
                       >
                         <span>{block.settings.buttonText}</span>
                         <ArrowRight className="w-4 h-4" />
                       </button>
+                    )}
+
+                    {block.settings?.secondaryButtonText && (
+                      <button
+                        onClick={() => {
+                          const url = block.settings.secondaryButtonUrl;
+                          if (url && url.startsWith('#')) {
+                            const target = document.querySelector(url);
+                            if (target) target.scrollIntoView({ behavior: 'smooth' });
+                          } else if (url && url !== '#') {
+                            window.open(url, '_blank');
+                          }
+                        }}
+                        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-200 font-semibold text-sm transition-all cursor-pointer"
+                      >
+                        <span>{block.settings.secondaryButtonText}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+
+            case 'container':
+            case 'columns':
+              const colsCount = block.settings?.columnsCount || block.settings?.columns?.length || 2;
+              const gridClass =
+                colsCount === 1
+                  ? 'grid grid-cols-1'
+                  : colsCount === 2
+                  ? 'grid grid-cols-1 md:grid-cols-2 gap-6'
+                  : colsCount === 3
+                  ? 'grid grid-cols-1 md:grid-cols-3 gap-6'
+                  : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4';
+
+              return (
+                <div key={block.id || bIdx} className="space-y-6 pt-4">
+                  {(block.title || block.subtitle) && (
+                    <div className="text-center space-y-1.5">
+                      {block.title && <h2 className="text-xl sm:text-2xl font-bold text-white">{block.title}</h2>}
+                      {block.subtitle && <p className="text-xs sm:text-sm text-slate-400 max-w-xl mx-auto">{block.subtitle}</p>}
                     </div>
                   )}
+
+                  <div className={gridClass}>
+                    {(block.settings?.columns || []).map((col: any, cIdx: number) => (
+                      <div
+                        key={cIdx}
+                        className="p-6 rounded-3xl bg-slate-900/70 border border-slate-800 flex flex-col justify-between space-y-4 hover:border-slate-700 transition-colors"
+                      >
+                        <div className="space-y-2">
+                          {col.badgeText && (
+                            <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-primary-500/10 text-primary-400 border border-primary-500/20 uppercase tracking-wider">
+                              {col.badgeText}
+                            </span>
+                          )}
+                          {col.title && <h3 className="font-bold text-base text-white">{col.title}</h3>}
+                          {col.description && <p className="text-xs text-slate-400 leading-relaxed">{col.description}</p>}
+                        </div>
+
+                        {col.buttonText && (
+                          <div className="pt-2">
+                            <button
+                              onClick={() => {
+                                const url = col.buttonUrl;
+                                if (url && url.startsWith('#')) {
+                                  const target = document.querySelector(url) || document.getElementById('funnel-embedded-form');
+                                  if (target) target.scrollIntoView({ behavior: 'smooth' });
+                                } else if (url && url !== '#') {
+                                  window.open(url, '_blank');
+                                } else {
+                                  const formEl = document.getElementById('funnel-embedded-form');
+                                  if (formEl) formEl.scrollIntoView({ behavior: 'smooth' });
+                                }
+                              }}
+                              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white font-semibold text-xs shadow-md shadow-primary-500/20 transition-all cursor-pointer"
+                            >
+                              <span>{col.buttonText}</span>
+                              <ArrowRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               );
 
@@ -208,6 +305,189 @@ export default function PublicFunnelPage() {
                         <p className="text-xs text-slate-400 leading-relaxed">{item.description}</p>
                       </div>
                     ))}
+                  </div>
+                </div>
+              );
+
+            case 'pricing':
+              const pricingTiers = block.settings?.pricingTiers || [];
+              return (
+                <div key={block.id || bIdx} className="space-y-8 pt-4">
+                  <div className="text-center space-y-1.5">
+                    <h2 className="text-2xl sm:text-3xl font-extrabold text-white">{block.title}</h2>
+                    {block.subtitle && <p className="text-xs sm:text-sm text-slate-400 max-w-xl mx-auto">{block.subtitle}</p>}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {pricingTiers.map((tier: any, tIdx: number) => (
+                      <div
+                        key={tIdx}
+                        className={`p-7 rounded-3xl border flex flex-col justify-between space-y-6 relative transition-all ${
+                          tier.popular
+                            ? 'bg-slate-900 border-primary-500 shadow-2xl shadow-primary-500/15 ring-1 ring-primary-500/50'
+                            : 'bg-slate-900/50 border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        {tier.popular && (
+                          <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[10px] font-bold bg-primary-500 text-white uppercase tracking-wider shadow-md">
+                            Most Popular
+                          </div>
+                        )}
+
+                        <div className="space-y-4">
+                          <div>
+                            <div className="font-bold text-sm text-slate-300">{tier.name}</div>
+                            <div className="flex items-baseline gap-1 mt-2">
+                              <span className="text-3xl sm:text-4xl font-extrabold text-white">{tier.price}</span>
+                              <span className="text-xs text-slate-400">{tier.period}</span>
+                            </div>
+                            {tier.description && (
+                              <p className="text-xs text-slate-400 mt-2 leading-relaxed">{tier.description}</p>
+                            )}
+                          </div>
+
+                          <div className="border-t border-slate-800/80 pt-4 space-y-2">
+                            {(tier.features || []).map((feat: string, fIdx: number) => (
+                              <div key={fIdx} className="flex items-start gap-2 text-xs text-slate-300">
+                                <Check className="w-3.5 h-3.5 text-primary-400 flex-shrink-0 mt-0.5" />
+                                <span>{feat}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            const formEl = document.getElementById('funnel-embedded-form');
+                            if (formEl) formEl.scrollIntoView({ behavior: 'smooth' });
+                          }}
+                          className={`w-full py-3 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                            tier.popular
+                              ? 'bg-primary-600 hover:bg-primary-500 text-white shadow-lg shadow-primary-500/25'
+                              : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                          }`}
+                        >
+                          {tier.buttonText || 'Choose Plan'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+
+            case 'faq':
+              const faqItems = block.settings?.faqItems || [];
+              return (
+                <div key={block.id || bIdx} className="max-w-3xl mx-auto w-full space-y-6 pt-4">
+                  <div className="text-center space-y-1.5">
+                    <h2 className="text-2xl font-extrabold text-white">{block.title}</h2>
+                    {block.subtitle && <p className="text-xs text-slate-400">{block.subtitle}</p>}
+                  </div>
+
+                  <div className="space-y-3">
+                    {faqItems.map((faq: any, fIdx: number) => {
+                      const faqKey = `${bIdx}-${fIdx}`;
+                      const isExpanded = !!expandedFaqs[faqKey];
+                      return (
+                        <div
+                          key={fIdx}
+                          className="rounded-2xl bg-slate-900/60 border border-slate-800 overflow-hidden transition-colors"
+                        >
+                          <button
+                            onClick={() =>
+                              setExpandedFaqs((prev) => ({
+                                ...prev,
+                                [faqKey]: !prev[faqKey],
+                              }))
+                            }
+                            className="w-full p-4 text-left flex items-center justify-between gap-4 cursor-pointer hover:bg-slate-900/90 transition-colors"
+                          >
+                            <span className="font-semibold text-sm text-slate-200">{faq.question}</span>
+                            {isExpanded ? (
+                              <ChevronUp className="w-4 h-4 text-primary-400 flex-shrink-0" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                            )}
+                          </button>
+                          {isExpanded && (
+                            <div className="p-4 pt-0 text-xs text-slate-400 leading-relaxed border-t border-slate-800/40">
+                              {faq.answer}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+
+            case 'cta':
+              return (
+                <div
+                  key={block.id || bIdx}
+                  className="p-8 sm:p-12 rounded-3xl bg-gradient-to-br from-primary-900/60 via-slate-900 to-slate-950 border border-primary-500/30 text-center space-y-5 shadow-2xl relative overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-primary-500/5 backdrop-blur-[1px] pointer-events-none" />
+                  <div className="relative z-10 space-y-4">
+                    {block.settings?.badgeText && (
+                      <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-primary-500/20 text-primary-300 border border-primary-500/30 uppercase tracking-wider">
+                        {block.settings.badgeText}
+                      </span>
+                    )}
+                    <h2 className="text-2xl sm:text-4xl font-extrabold text-white max-w-2xl mx-auto leading-tight">
+                      {block.title}
+                    </h2>
+                    {block.subtitle && (
+                      <p className="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto leading-relaxed">
+                        {block.subtitle}
+                      </p>
+                    )}
+
+                    <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                      {block.settings?.buttonText && (
+                        <button
+                          onClick={() => {
+                            const formEl = document.getElementById('funnel-embedded-form');
+                            if (formEl) formEl.scrollIntoView({ behavior: 'smooth' });
+                          }}
+                          className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary-600 hover:bg-primary-500 text-white font-bold text-sm shadow-xl shadow-primary-500/30 transition-all cursor-pointer"
+                        >
+                          <span>{block.settings.buttonText}</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                      )}
+                      {block.settings?.secondaryButtonText && (
+                        <button
+                          onClick={() => {
+                            const formEl = document.getElementById('funnel-embedded-form');
+                            if (formEl) formEl.scrollIntoView({ behavior: 'smooth' });
+                          }}
+                          className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700 text-slate-300 font-semibold text-xs transition-all cursor-pointer"
+                        >
+                          <span>{block.settings.secondaryButtonText}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+
+            case 'video':
+              return (
+                <div key={block.id || bIdx} className="space-y-6 pt-4 text-center">
+                  <div className="space-y-1">
+                    <h2 className="text-2xl font-bold text-white">{block.title}</h2>
+                    {block.subtitle && <p className="text-xs text-slate-400 max-w-xl mx-auto">{block.subtitle}</p>}
+                  </div>
+
+                  <div className="max-w-3xl mx-auto aspect-video rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center relative overflow-hidden shadow-2xl group cursor-pointer">
+                    <div className="w-16 h-16 rounded-full bg-primary-600/90 text-white flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
+                      <Play className="w-6 h-6 fill-current ml-1" />
+                    </div>
+                    <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-[11px] text-slate-400 bg-slate-950/80 px-4 py-2 rounded-xl backdrop-blur-sm">
+                      <span>High-Definition Stream (1080p)</span>
+                      <span>Audio & Video Verified</span>
+                    </div>
                   </div>
                 </div>
               );
@@ -292,6 +572,25 @@ export default function PublicFunnelPage() {
               );
 
             case 'testimonials':
+              const testimonialList =
+                block.settings?.items && block.settings.items.length > 0
+                  ? block.settings.items
+                  : [
+                      {
+                        name: 'Marcus Vance',
+                        role: 'Managing Partner, Vance Advisory',
+                        quote:
+                          'The automated lead routing and unified communications increased our conversion velocity by 340% within 60 days.',
+                        rating: 5,
+                      },
+                      {
+                        name: 'Elena Rostova',
+                        role: 'VP Operations, Apex Health Networks',
+                        quote:
+                          'Having our funnel directly connected to instantaneous SMS nurture sequences changed our client onboarding forever.',
+                        rating: 5,
+                      },
+                    ];
               return (
                 <div key={block.id || bIdx} className="space-y-6 pt-4">
                   <div className="text-center space-y-1">
@@ -300,21 +599,10 @@ export default function PublicFunnelPage() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {[
-                      {
-                        name: 'Marcus Vance',
-                        role: 'Managing Partner, Vance Advisory',
-                        quote: 'The automated lead routing and unified communications increased our conversion velocity by 340% within 60 days.',
-                      },
-                      {
-                        name: 'Elena Rostova',
-                        role: 'VP Operations, Apex Health Networks',
-                        quote: 'Having our funnel directly connected to instantaneous SMS nurture sequences changed our client onboarding forever.',
-                      },
-                    ].map((t, idx) => (
+                    {testimonialList.map((t: any, idx: number) => (
                       <div key={idx} className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-3">
                         <div className="flex items-center gap-1 text-amber-400">
-                          {[...Array(5)].map((_, i) => (
+                          {[...Array(t.rating || 5)].map((_, i) => (
                             <Star key={i} className="w-3.5 h-3.5 fill-current" />
                           ))}
                         </div>

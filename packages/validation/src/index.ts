@@ -462,7 +462,7 @@ export type RecordUsageInput = z.infer<typeof recordUsageSchema>;
 
 export const funnelBlockSchema = z.object({
   id: z.string().optional(),
-  type: z.enum(['hero', 'features', 'testimonials', 'pricing', 'form_embed', 'cta', 'video']),
+  type: z.string().trim().min(1, 'Block type is required'),
   title: z.string().trim().min(1, 'Block title is required'),
   subtitle: z.string().trim().optional(),
   content: z.string().trim().optional(),

@@ -5,8 +5,9 @@ import { seedDemoData } from '@prosumate/database';
 
 async function bootstrap() {
   // Initialize pristine fresh database (0 demo contacts, 0 dummy funnels/conversations)
+  // Supports GHL visual website section templates, containers & multi-column layouts
   seedDemoData();
-  logger.info('Pristine database initialized with 0 demo records for Prosumateai@gmail.com');
+  logger.info('Pristine database initialized with GHL section templates & multi-column layout support');
 
   const app = buildApp();
 
