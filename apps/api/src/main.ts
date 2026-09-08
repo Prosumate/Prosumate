@@ -4,9 +4,9 @@ import { logger } from '@prosumate/logger';
 import { seedDemoData } from '@prosumate/database';
 
 async function bootstrap() {
-  // Populate demo seed data for development
+  // Populate primary proprietary account data
   seedDemoData();
-  logger.info('Demo seed data successfully loaded into memory store');
+  logger.info('Primary user (Prosumateai@gmail.com) successfully initialized');
 
   const app = buildApp();
 

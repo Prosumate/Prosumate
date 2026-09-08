@@ -58,13 +58,14 @@ export function buildApp(): FastifyInstance {
   app.setErrorHandler((error: FastifyError | AppError | Error, request, reply) => {
     const requestId = getRequestId(request);
 
-    if (error instanceof AppError) {
-      logger.warn(`API Error [${error.code}]: ${error.message}`, {
+    if (error instanceof AppError || ('statusCode' in error && 'code' in error)) {
+      const appErr = error as any;
+      logger.warn(`API Error [${appErr.code}]: ${appErr.message}`, {
         requestId,
-        statusCode: error.statusCode,
-        code: error.code,
+        statusCode: appErr.statusCode,
+        code: appErr.code,
       });
-      return sendError(reply, error.code, error.message, error.statusCode, error.details);
+      return sendError(reply, appErr.code, appErr.message, appErr.statusCode, appErr.details);
     }
 
     // Fastify schema/validation error
