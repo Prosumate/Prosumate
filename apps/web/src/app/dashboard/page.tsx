@@ -4,22 +4,24 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import {
-  ShieldCheck,
-  Building2,
-  MapPin,
-  Users,
+  Contact2,
+  GitBranch,
+  MessageSquare,
   Activity,
-  CheckCircle2,
-  AlertCircle,
   ArrowUpRight,
-  Lock,
+  Sparkles,
   ScrollText,
+  Workflow,
+  Layers,
+  CheckCircle2,
 } from 'lucide-react';
 
 export default function DashboardOverviewPage() {
   const [profile, setProfile] = useState<any>(null);
   const [healthStatus, setHealthStatus] = useState<any>(null);
-  const [locationsCount, setLocationsCount] = useState<number>(0);
+  const [contactsCount, setContactsCount] = useState<number>(0);
+  const [pipelinesCount, setPipelinesCount] = useState<number>(0);
+  const [conversationsCount, setConversationsCount] = useState<number>(0);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
 
   useEffect(() => {
@@ -27,13 +29,22 @@ export default function DashboardOverviewPage() {
       const meRes = await api.getMe();
       if (meRes.success) {
         setProfile(meRes.data);
-        const agencyId = meRes.data?.agencies?.[0]?.agency?.id;
-        if (agencyId) {
-          const locRes = await api.getLocations(agencyId);
-          if (locRes.success && locRes.data) {
-            setLocationsCount(locRes.data.length);
-          }
-        }
+      }
+
+      const savedLoc =
+        localStorage.getItem('prosumate_active_location') ||
+        meRes.data?.locations?.[0]?.id ||
+        '';
+
+      if (savedLoc) {
+        const [cRes, pRes, convRes] = await Promise.all([
+          api.getContacts(savedLoc),
+          api.getPipelines(savedLoc),
+          api.getConversations(savedLoc),
+        ]);
+        if (cRes.success && cRes.data) setContactsCount(cRes.data.length);
+        if (pRes.success && pRes.data) setPipelinesCount(pRes.data.length);
+        if (convRes.success && convRes.data) setConversationsCount(convRes.data.length);
       }
 
       const healthRes = await api.getHealth();
@@ -50,143 +61,154 @@ export default function DashboardOverviewPage() {
     loadData();
   }, []);
 
-  const activeAgency = profile?.agencies?.[0]?.agency;
-  const activeRole = profile?.agencies?.[0]?.role;
-
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Welcome Banner */}
       <div className="relative overflow-hidden rounded-2xl p-6 sm:p-8 glass-panel glow-subtle border border-primary-500/20">
         <div className="relative z-10 space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-500/15 border border-primary-500/30 text-xs font-semibold text-primary-300">
-            <ShieldCheck className="w-3.5 h-3.5" /> Phase 1 Foundation Verified
+            <Sparkles className="w-3.5 h-3.5" /> Prosumate Workspace
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-            Welcome back, {profile?.user?.firstName || 'Operator'}
+            Welcome back, {profile?.user?.firstName || 'Admin'}
           </h1>
           <p className="text-sm text-slate-400 max-w-2xl">
-            Prosumate is running with strict backend tenant isolation, role-based authorization, and
-            immutable audit logging. All CRM and automation data will inherit these tenant boundaries.
+            Real-time operational overview across your client relationships, sales opportunities, communication channels, and automated workflows.
           </p>
         </div>
       </div>
 
-      {/* Metrics & Tenant Stat Cards */}
+      {/* Business KPI Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Active Agency Card */}
-        <div className="glass-panel p-5 rounded-xl space-y-3">
+        {/* Total Contacts Card */}
+        <Link href="/dashboard/contacts" className="glass-panel p-5 rounded-xl space-y-3 hover:border-primary-500/50 transition-all group cursor-pointer">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-semibold uppercase tracking-wider">Active Agency</span>
-            <Building2 className="w-4 h-4 text-primary-400" />
+            <span className="text-xs font-semibold uppercase tracking-wider group-hover:text-primary-300 transition-colors">Total Contacts</span>
+            <Contact2 className="w-4 h-4 text-primary-400" />
           </div>
           <div>
-            <div className="text-lg font-bold text-white truncate">{activeAgency?.name || 'Apex Growth'}</div>
-            <div className="text-xs text-primary-400 mt-0.5">Tier: {activeAgency?.billingTier || 'Pro Tier'}</div>
-          </div>
-        </div>
-
-        {/* Locations Card */}
-        <div className="glass-panel p-5 rounded-xl space-y-3">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-semibold uppercase tracking-wider">Operating Locations</span>
-            <MapPin className="w-4 h-4 text-accent-teal" />
-          </div>
-          <div>
-            <div className="text-lg font-bold text-white">{locationsCount} Locations</div>
-            <div className="text-xs text-slate-400 mt-0.5">Assigned client sub-accounts</div>
-          </div>
-        </div>
-
-        {/* Assigned Role Card */}
-        <div className="glass-panel p-5 rounded-xl space-y-3">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-semibold uppercase tracking-wider">Your Role</span>
-            <Users className="w-4 h-4 text-accent-amber" />
-          </div>
-          <div>
-            <div className="text-lg font-bold text-white">{activeRole || 'ADMIN'}</div>
-            <div className="text-xs text-emerald-400 mt-0.5 flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" /> Tenant Guards Active
+            <div className="text-2xl font-bold text-white">{contactsCount}</div>
+            <div className="text-xs text-primary-400 mt-0.5 flex items-center gap-1">
+              <span>View all CRM contacts</span>
+              <ArrowUpRight className="w-3 h-3" />
             </div>
           </div>
-        </div>
+        </Link>
+
+        {/* Pipelines Card */}
+        <Link href="/dashboard/pipelines" className="glass-panel p-5 rounded-xl space-y-3 hover:border-accent-teal/50 transition-all group cursor-pointer">
+          <div className="flex items-center justify-between text-slate-400">
+            <span className="text-xs font-semibold uppercase tracking-wider group-hover:text-teal-300 transition-colors">Sales Pipelines</span>
+            <GitBranch className="w-4 h-4 text-accent-teal" />
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-white">{pipelinesCount} Pipelines</div>
+            <div className="text-xs text-teal-400 mt-0.5 flex items-center gap-1">
+              <span>View deal stages & kanban</span>
+              <ArrowUpRight className="w-3 h-3" />
+            </div>
+          </div>
+        </Link>
+
+        {/* Conversations Card */}
+        <Link href="/dashboard/conversations" className="glass-panel p-5 rounded-xl space-y-3 hover:border-amber-500/50 transition-all group cursor-pointer">
+          <div className="flex items-center justify-between text-slate-400">
+            <span className="text-xs font-semibold uppercase tracking-wider group-hover:text-amber-300 transition-colors">Active Threads</span>
+            <MessageSquare className="w-4 h-4 text-accent-amber" />
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-white">{conversationsCount} Conversations</div>
+            <div className="text-xs text-amber-400 mt-0.5 flex items-center gap-1">
+              <span>Open unified inbox</span>
+              <ArrowUpRight className="w-3 h-3" />
+            </div>
+          </div>
+        </Link>
 
         {/* System Health Card */}
         <div className="glass-panel p-5 rounded-xl space-y-3">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-semibold uppercase tracking-wider">API Health</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">System Status</span>
             <Activity className="w-4 h-4 text-emerald-400" />
           </div>
           <div>
-            <div className="text-lg font-bold text-emerald-400 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              {healthStatus?.status === 'ok' ? 'Operational' : 'Connecting...'}
+            <div className="text-2xl font-bold text-emerald-400 flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              {healthStatus?.status === 'ok' ? 'Online' : 'Connecting...'}
             </div>
-            <div className="text-xs text-slate-400 mt-0.5">
-              Uptime: {healthStatus?.uptime ? `${Math.round(healthStatus.uptime)}s` : 'Active'}
+            <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+              <span>SSL & Database Connected</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Two Column Layout: Quick Actions & Recent Audit Trail */}
+      {/* Two Column Layout: Operational Modules & Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Tenant Architecture Overview */}
+        {/* Left 2 Cols: Platform Shortcuts */}
         <div className="lg:col-span-2 glass-panel p-6 rounded-2xl space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-white flex items-center gap-2">
-              <Lock className="w-4 h-4 text-primary-400" />
-              Multi-Tenant Architecture Guarantees
+              <Sparkles className="w-4 h-4 text-primary-400" />
+              Core Workspace Modules
             </h2>
             <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
-              Zero Leakage Policy
+              Ready to Use
             </span>
           </div>
 
-          <div className="space-y-3 text-xs text-slate-300">
-            <div className="p-3.5 rounded-xl bg-surface-card border border-border flex items-start gap-3">
-              <div className="p-1.5 rounded-lg bg-primary-500/20 text-primary-400 mt-0.5">
-                <ShieldCheck className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="font-semibold text-white">Strict Backend Tenant Isolation</div>
-                <div className="text-slate-400 mt-0.5">
-                  Tenant guards intercept every request to verify organization, agency, and location
-                  ownership before executing database queries. Manipulated route IDs trigger immediate 403
-                  Forbidden rejections.
-                </div>
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-surface-card border border-border flex items-start gap-3">
-              <div className="p-1.5 rounded-lg bg-accent-teal/20 text-accent-teal mt-0.5">
-                <ScrollText className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="font-semibold text-white">Immutable Security Audit Trails</div>
-                <div className="text-slate-400 mt-0.5">
-                  All security-critical actions (logins, role changes, location provisioning, cross-tenant
-                  attempts) produce non-fungible audit records capturing timestamp, actor ID, and metadata.
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Nav Links */}
-          <div className="pt-2 flex items-center gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
             <Link
-              href="/dashboard/locations"
-              className="px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              href="/dashboard/contacts"
+              className="p-4 rounded-xl bg-surface-card hover:bg-surface-elevated border border-border flex items-start gap-3.5 transition-all group"
             >
-              <span>Manage Locations</span>
-              <ArrowUpRight className="w-3.5 h-3.5" />
+              <div className="p-2 rounded-lg bg-primary-500/20 text-primary-400 group-hover:scale-105 transition-transform">
+                <Contact2 className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="font-semibold text-sm text-white group-hover:text-primary-300 transition-colors">CRM & Lead Capture</div>
+                <div className="text-slate-400 text-xs mt-1">Manage contacts, custom tags, company accounts, and activity notes.</div>
+              </div>
             </Link>
+
             <Link
-              href="/dashboard/audit"
-              className="px-4 py-2 rounded-xl bg-surface-elevated hover:bg-surface-elevated/80 border border-border text-white text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              href="/dashboard/pipelines"
+              className="p-4 rounded-xl bg-surface-card hover:bg-surface-elevated border border-border flex items-start gap-3.5 transition-all group"
             >
-              <span>View Audit Logs</span>
-              <ArrowUpRight className="w-3.5 h-3.5" />
+              <div className="p-2 rounded-lg bg-accent-teal/20 text-accent-teal group-hover:scale-105 transition-transform">
+                <GitBranch className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="font-semibold text-sm text-white group-hover:text-teal-300 transition-colors">Deals & Pipelines</div>
+                <div className="text-slate-400 text-xs mt-1">Visual kanban pipeline boards, revenue tracking, and deal stages.</div>
+              </div>
+            </Link>
+
+            <Link
+              href="/dashboard/conversations"
+              className="p-4 rounded-xl bg-surface-card hover:bg-surface-elevated border border-border flex items-start gap-3.5 transition-all group"
+            >
+              <div className="p-2 rounded-lg bg-accent-amber/20 text-accent-amber group-hover:scale-105 transition-transform">
+                <MessageSquare className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="font-semibold text-sm text-white group-hover:text-amber-300 transition-colors">Unified Communication</div>
+                <div className="text-slate-400 text-xs mt-1">Two-way Email and SMS messaging unified in a single conversation stream.</div>
+              </div>
+            </Link>
+
+            <Link
+              href="/dashboard/workflows"
+              className="p-4 rounded-xl bg-surface-card hover:bg-surface-elevated border border-border flex items-start gap-3.5 transition-all group"
+            >
+              <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400 group-hover:scale-105 transition-transform">
+                <Workflow className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="font-semibold text-sm text-white group-hover:text-indigo-300 transition-colors">Automations & Workflows</div>
+                <div className="text-slate-400 text-xs mt-1">Event-driven triggers, automatic email sequences, and task scheduling.</div>
+              </div>
             </Link>
           </div>
         </div>
@@ -196,16 +218,16 @@ export default function DashboardOverviewPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-white flex items-center gap-2">
               <ScrollText className="w-4 h-4 text-accent-amber" />
-              Recent Audit Events
+              Recent Activity
             </h2>
             <Link href="/dashboard/audit" className="text-xs text-primary-400 hover:underline">
-              All
+              View All
             </Link>
           </div>
 
           <div className="space-y-2.5">
             {auditLogs.length === 0 ? (
-              <p className="text-xs text-slate-500 py-4 text-center">No recent audit logs</p>
+              <p className="text-xs text-slate-500 py-4 text-center">No recent activity logs</p>
             ) : (
               auditLogs.map((log) => (
                 <div

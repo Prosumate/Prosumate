@@ -228,59 +228,20 @@ export default function DashboardLayout({
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Navbar with Multi-Tenant Switcher */}
+        {/* Top Navbar */}
         <header className="h-14 border-b border-border bg-surface/50 backdrop-blur-md px-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {/* Agency Switcher */}
-            <div className="flex items-center gap-2 bg-surface-elevated/80 border border-border rounded-xl px-3 py-1.5">
-              <Building2 className="w-3.5 h-3.5 text-primary-400" />
-              <span className="text-xs text-slate-400 font-medium">Agency:</span>
-              <select
-                value={activeAgencyId}
-                onChange={handleAgencyChange}
-                className="bg-transparent text-xs font-semibold text-white focus:outline-none cursor-pointer pr-2"
-              >
-                {userProfile?.agencies?.map((item: any) => (
-                  <option key={item.agency.id} value={item.agency.id} className="bg-surface text-white">
-                    {item.agency.name} ({item.role})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Location Switcher */}
-            <div className="flex items-center gap-2 bg-surface-elevated/80 border border-border rounded-xl px-3 py-1.5">
-              <MapPin className="w-3.5 h-3.5 text-accent-teal" />
-              <span className="text-xs text-slate-400 font-medium">Location:</span>
-              <select
-                value={activeLocationId}
-                onChange={handleLocationChange}
-                className="bg-transparent text-xs font-semibold text-white focus:outline-none cursor-pointer pr-2"
-              >
-                {locations.map((loc: any) => (
-                  <option key={loc.id} value={loc.id} className="bg-surface text-white">
-                    {loc.name}
-                  </option>
-                ))}
-                {locations.length === 0 && (
-                  <option disabled value="" className="bg-surface text-slate-500">
-                    No locations
-                  </option>
-                )}
-              </select>
-            </div>
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold text-white tracking-wide">
+              {navItems.find((item) => item.href === pathname)?.name || 'Dashboard'}
+            </span>
           </div>
 
-          {/* Header Right Badges */}
+          {/* Header Right */}
           <div className="flex items-center gap-3">
-            <TestModeBadge />
-
-            {/* Platform Admin Badge if superadmin */}
-            {userProfile?.user?.isPlatformAdmin && (
-              <div className="px-2.5 py-1 rounded-full bg-primary-500/10 border border-primary-500/30 text-[11px] font-semibold text-primary-300">
-                ⚡ Platform Superadmin
-              </div>
-            )}
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-medium text-emerald-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Live Cloud</span>
+            </div>
           </div>
         </header>
 
