@@ -1,0 +1,49 @@
+{
+  "name": "prosumate-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Multi-tenant Sales & Marketing SaaS Platform",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build:api && npm run build --workspace=@prosumate/web",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "dev:api": "npm run watch:api",
+    "dev:web": "npm run dev --workspace=@prosumate/web",
+    "dev": "concurrently --kill-others \"npm run watch:api\" \"npm run dev --workspace=@prosumate/web\"",
+    "db:generate": "npm run db:generate --workspace=@prosumate/database",
+    "db:migrate": "npm run db:migrate --workspace=@prosumate/database",
+    "db:seed": "npm run db:seed --workspace=@prosumate/database",
+    "build:packages": "npm run build --workspace=@prosumate/types --workspace=@prosumate/logger --workspace=@prosumate/validation --workspace=@prosumate/database",
+    "build:api": "npm run build:packages && npm run build --workspace=@prosumate/api",
+    "pretest": "npm run build:api",
+    "predev": "npm run build:api",
+    "predev:api": "npm run build:api",
+    "watch:api": "concurrently --kill-others \"tsc --watch --project apps/api\" \"node --watch apps/api/dist/src/main.js\"",
+    "predev:web": "npm run build:packages"
+  },
+  "keywords": [
+    "saas",
+    "multi-tenant",
+    "crm",
+    "marketing-automation"
+  ],
+  "author": "Prosumate Team",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.4",
+    "typescript": "^5.7.3"
+  },
+  "optionalDependencies": {
+    "@next/swc-wasm-nodejs": "^14.2.33"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.39.3"
+  }
+}

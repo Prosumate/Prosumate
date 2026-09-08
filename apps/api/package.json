@@ -1,0 +1,31 @@
+{
+  "name": "@prosumate/api",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/main.js",
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf dist",
+    "start": "node ./dist/main.js",
+    "dev": "tsc -w & node ./dist/main.js",
+    "test": "node --test dist/test/*.spec.js"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.2",
+    "@fastify/helmet": "^13.0.1",
+    "@prosumate/database": "*",
+    "@prosumate/logger": "*",
+    "@prosumate/types": "*",
+    "@prosumate/validation": "*",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.7",
+    "fastify": "^5.2.1",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.8",
+    "@types/node": "^22.13.5",
+    "typescript": "^5.7.3"
+  }
+}

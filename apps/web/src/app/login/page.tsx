@@ -1,0 +1,192 @@
+'use client';
+
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { api } from '@/lib/api';
+import { ShieldCheck, Sparkles, Building2, UserCheck, ArrowRight, Lock, Mail } from 'lucide-react';
+
+export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    const res = await api.login({ email, password });
+    setIsLoading(false);
+
+    if (res.success && res.data) {
+      api.setAccessToken(res.data.tokens.accessToken);
+      if (res.data.agencies?.[0]?.id) {
+        localStorage.setItem('prosumate_active_agency', res.data.agencies[0].id);
+      }
+      if (res.data.locations?.[0]?.id) {
+        localStorage.setItem('prosumate_active_location', res.data.locations[0].id);
+      } else if (res.data.agencies?.[0]?.id) {
+        // Superadmin or user with agency access but no direct location membership
+        const locRes = await api.getLocations(res.data.agencies[0].id);
+        if (locRes.success && locRes.data?.[0]?.id) {
+          localStorage.setItem('prosumate_active_location', locRes.data[0].id);
+        }
+      }
+      router.push('/dashboard');
+    } else {
+      setErrorMessage(res.error?.message || 'Authentication failed. Please check your credentials.');
+    }
+  };
+
+  const handleQuickLogin = (demoEmail: string, demoPass: string) => {
+    setEmail(demoEmail);
+    setPassword(demoPass);
+  };
+
+  return (
+    <div className="min-h-screen w-full flex items-center justify-center p-4 bg-background relative overflow-hidden">
+      {/* Subtle background glow */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-primary-600/10 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="w-full max-w-md space-y-6 relative z-10">
+        {/* Brand Header */}
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-tr from-primary-600 to-indigo-400 text-white shadow-lg shadow-primary-500/20 mb-2">
+            <ShieldCheck className="w-6 h-6" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-white">Sign in to Prosumate</h1>
+          <p className="text-sm text-slate-400">
+            Multi-Tenant Sales, Marketing & Operations Workspace
+          </p>
+        </div>
+
+        {/* Login Form Card */}
+        <div className="glass-panel p-6 sm:p-8 rounded-2xl glow-subtle">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {errorMessage && (
+              <div className="p-3 text-sm rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300">
+                {errorMessage}
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium uppercase tracking-wider text-slate-300">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@agency.com"
+                  className="w-full pl-10 pr-3 py-2.5 bg-surface-elevated/60 border border-border rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium uppercase tracking-wider text-slate-300">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full pl-10 pr-3 py-2.5 bg-surface-elevated/60 border border-border rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-primary-600 to-indigo-600 hover:from-primary-500 hover:to-indigo-500 text-white font-medium text-sm flex items-center justify-center gap-2 shadow-lg shadow-primary-600/25 transition-all disabled:opacity-50 cursor-pointer"
+            >
+              {isLoading ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : (
+                <>
+                  <span>Sign In</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Quick Demo Credentials */}
+          <div className="mt-6 pt-6 border-t border-border">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3 text-center">
+              Quick Demo Accounts
+            </p>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('admin@prosumate.local', 'SuperAdmin2026!')}
+                className="p-2.5 rounded-lg bg-surface-card hover:bg-surface-elevated border border-border text-left transition-colors cursor-pointer group"
+              >
+                <div className="font-semibold text-indigo-300 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-primary-400" />
+                  Superadmin
+                </div>
+                <div className="text-[11px] text-slate-500 mt-0.5 truncate">Full platform scope</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('sarah.owner@apex.agency', 'AgencyOwner2026!')}
+                className="p-2.5 rounded-lg bg-surface-card hover:bg-surface-elevated border border-border text-left transition-colors cursor-pointer"
+              >
+                <div className="font-semibold text-emerald-300 flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-emerald-400" />
+                  Agency Owner
+                </div>
+                <div className="text-[11px] text-slate-500 mt-0.5 truncate">Apex Growth Agency</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('marcus.admin@apex.agency', 'LocationAdmin2026!')}
+                className="p-2.5 rounded-lg bg-surface-card hover:bg-surface-elevated border border-border text-left transition-colors cursor-pointer"
+              >
+                <div className="font-semibold text-amber-300 flex items-center gap-1.5">
+                  <UserCheck className="w-3.5 h-3.5 text-amber-400" />
+                  Location Admin
+                </div>
+                <div className="text-[11px] text-slate-500 mt-0.5 truncate">Austin HQ scope</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('chloe.sales@apex.agency', 'SalesUser2026!')}
+                className="p-2.5 rounded-lg bg-surface-card hover:bg-surface-elevated border border-border text-left transition-colors cursor-pointer"
+              >
+                <div className="font-semibold text-slate-300 flex items-center gap-1.5">
+                  <UserCheck className="w-3.5 h-3.5 text-slate-400" />
+                  Sales Rep
+                </div>
+                <div className="text-[11px] text-slate-500 mt-0.5 truncate">Limited access</div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Link */}
+        <p className="text-center text-sm text-slate-400">
+          New agency?{' '}
+          <Link href="/register" className="text-primary-400 hover:text-primary-300 font-medium underline underline-offset-4">
+            Register your agency
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+}
