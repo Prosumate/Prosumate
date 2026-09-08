@@ -40,11 +40,13 @@ import {
   Save,
   MousePointerClick,
   ChevronLeft,
+  Image as ImageIcon,
 } from 'lucide-react';
 import {
   WEBSITE_TEMPLATES,
   TEMPLATE_CATEGORIES,
   WebsiteTemplate,
+  NICHE_IMAGE_PRESETS,
 } from '@/lib/website-templates';
 import {
   GHL_SECTION_CATEGORIES,
@@ -98,6 +100,7 @@ export default function FunnelsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [expandedFaqs, setExpandedFaqs] = useState<Record<string, boolean>>({});
+  const [selectedPresetNiche, setSelectedPresetNiche] = useState<string>('agency_b2b');
 
   // Directory Tabs & Template Browsing
   const [directoryTab, setDirectoryTab] = useState<'my_funnels' | 'templates'>('my_funnels');
@@ -1123,101 +1126,337 @@ export default function FunnelsPage() {
 
                           {/* Section Content Rendering */}
                           <div className="pt-4 space-y-6">
-                            {/* 1. Optional Badge */}
-                            {settings.badgeText && (
-                              <div className="flex">
-                                <span
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedTarget({
-                                      blockIndex: bIdx,
-                                      elementPath: 'badge',
-                                      type: 'badge',
-                                    });
-                                  }}
-                                  className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider transition-all inline-flex items-center gap-1.5 cursor-pointer ${
-                                    selectedTarget?.blockIndex === bIdx &&
-                                    selectedTarget.elementPath === 'badge'
-                                      ? 'ring-2 ring-amber-400 bg-amber-400/20 text-amber-300'
-                                      : 'bg-primary-500/10 text-primary-400 border border-primary-500/20 hover:border-amber-400'
-                                  }`}
-                                >
-                                  <Sparkles className="w-3 h-3 text-amber-400" />
-                                  {settings.badgeText}
-                                </span>
-                              </div>
-                            )}
-
-                            {/* 2. Headline / Title */}
-                            {block.title && (
-                              <h2
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedTarget({
-                                    blockIndex: bIdx,
-                                    elementPath: 'title',
-                                    type: 'title',
-                                  });
-                                }}
-                                className={`font-black tracking-tight text-white transition-all cursor-pointer rounded-lg p-1 -m-1 ${
-                                  block.type === 'hero' ? 'text-2xl sm:text-4xl' : 'text-xl sm:text-2xl'
-                                } ${
+                            {/* HERO SECTION RENDERING (SPLIT / BACKGROUND / STANDARD) */}
+                            {block.type === 'hero' ? (
+                              (() => {
+                                const heroImgUrl = settings.imageUrl;
+                                const isBgHero = settings.imagePosition === 'background' && heroImgUrl;
+                                const isLeftImg = settings.imagePosition === 'left';
+                                const heroAspect =
+                                  settings.aspectRatio === '4:3'
+                                    ? 'aspect-[4/3]'
+                                    : settings.aspectRatio === '1:1'
+                                    ? 'aspect-square'
+                                    : settings.aspectRatio === '3:4'
+                                    ? 'aspect-[3/4]'
+                                    : 'aspect-video';
+                                const heroRadius = settings.borderRadius || 'rounded-2xl';
+                                const isHeroImgSelected =
                                   selectedTarget?.blockIndex === bIdx &&
-                                  selectedTarget.elementPath === 'title'
-                                    ? 'ring-2 ring-amber-400 bg-amber-400/10'
-                                    : 'hover:ring-1 hover:ring-amber-400/60'
-                                }`}
-                              >
-                                {block.title}
-                              </h2>
-                            )}
+                                  (selectedTarget.elementPath === 'hero-image' || selectedTarget.type === 'image');
 
-                            {/* 3. Subtitle / Description */}
-                            {block.subtitle && (
-                              <p
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedTarget({
-                                    blockIndex: bIdx,
-                                    elementPath: 'subtitle',
-                                    type: 'subtitle',
-                                  });
-                                }}
-                                className={`text-slate-300 text-sm sm:text-base leading-relaxed max-w-3xl transition-all cursor-pointer rounded-lg p-1 -m-1 ${
-                                  selectedTarget?.blockIndex === bIdx &&
-                                  selectedTarget.elementPath === 'subtitle'
-                                    ? 'ring-2 ring-amber-400 bg-amber-400/10'
-                                    : 'hover:ring-1 hover:ring-amber-400/60'
-                                }`}
-                              >
-                                {block.subtitle}
-                              </p>
-                            )}
+                                const heroContentCol = (
+                                  <div className="space-y-4">
+                                    {/* 1. Optional Badge */}
+                                    {settings.badgeText && (
+                                      <div className="flex">
+                                        <span
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedTarget({
+                                              blockIndex: bIdx,
+                                              elementPath: 'badge',
+                                              type: 'badge',
+                                            });
+                                          }}
+                                          className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider transition-all inline-flex items-center gap-1.5 cursor-pointer ${
+                                            selectedTarget?.blockIndex === bIdx &&
+                                            selectedTarget.elementPath === 'badge'
+                                              ? 'ring-2 ring-amber-400 bg-amber-400/20 text-amber-300'
+                                              : 'bg-primary-500/10 text-primary-400 border border-primary-500/20 hover:border-amber-400'
+                                          }`}
+                                        >
+                                          <Sparkles className="w-3 h-3 text-amber-400" />
+                                          {settings.badgeText}
+                                        </span>
+                                      </div>
+                                    )}
 
-                            {/* 4. Action Button (Hero / CTA) */}
-                            {settings.buttonText && (
-                              <div className="pt-2">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedTarget({
-                                      blockIndex: bIdx,
-                                      elementPath: 'button',
-                                      type: 'button',
-                                    });
-                                  }}
-                                  className={`px-6 py-3 rounded-xl font-bold text-sm text-white shadow-lg transition-all cursor-pointer inline-flex items-center gap-2 ${
-                                    selectedTarget?.blockIndex === bIdx &&
-                                    selectedTarget.elementPath === 'button'
-                                      ? 'ring-4 ring-amber-400 bg-primary-600'
-                                      : 'bg-primary-600 hover:bg-primary-500 shadow-primary-500/25 hover:ring-2 hover:ring-amber-400/70'
-                                  }`}
-                                >
-                                  <span>{settings.buttonText}</span>
-                                  <ArrowRight className="w-4 h-4" />
-                                </button>
-                              </div>
+                                    {/* 2. Headline / Title */}
+                                    {block.title && (
+                                      <h2
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedTarget({
+                                            blockIndex: bIdx,
+                                            elementPath: 'title',
+                                            type: 'title',
+                                          });
+                                        }}
+                                        className={`font-black tracking-tight text-white transition-all cursor-pointer rounded-lg p-1 -m-1 text-2xl sm:text-4xl ${
+                                          selectedTarget?.blockIndex === bIdx &&
+                                          selectedTarget.elementPath === 'title'
+                                            ? 'ring-2 ring-amber-400 bg-amber-400/10'
+                                            : 'hover:ring-1 hover:ring-amber-400/60'
+                                        }`}
+                                      >
+                                        {block.title}
+                                      </h2>
+                                    )}
+
+                                    {/* 3. Subtitle / Description */}
+                                    {block.subtitle && (
+                                      <p
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedTarget({
+                                            blockIndex: bIdx,
+                                            elementPath: 'subtitle',
+                                            type: 'subtitle',
+                                          });
+                                        }}
+                                        className={`text-slate-300 text-sm sm:text-base leading-relaxed max-w-3xl transition-all cursor-pointer rounded-lg p-1 -m-1 ${
+                                          selectedTarget?.blockIndex === bIdx &&
+                                          selectedTarget.elementPath === 'subtitle'
+                                            ? 'ring-2 ring-amber-400 bg-amber-400/10'
+                                            : 'hover:ring-1 hover:ring-amber-400/60'
+                                        }`}
+                                      >
+                                        {block.subtitle}
+                                      </p>
+                                    )}
+
+                                    {/* 4. Action Button & Image Controls */}
+                                    <div className="pt-2 flex flex-wrap items-center gap-3">
+                                      {settings.buttonText && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedTarget({
+                                              blockIndex: bIdx,
+                                              elementPath: 'button',
+                                              type: 'button',
+                                            });
+                                          }}
+                                          className={`px-6 py-3 rounded-xl font-bold text-sm text-white shadow-lg transition-all cursor-pointer inline-flex items-center gap-2 ${
+                                            selectedTarget?.blockIndex === bIdx &&
+                                            selectedTarget.elementPath === 'button'
+                                              ? 'ring-4 ring-amber-400 bg-primary-600'
+                                              : 'bg-primary-600 hover:bg-primary-500 shadow-primary-500/25 hover:ring-2 hover:ring-amber-400/70'
+                                          }`}
+                                        >
+                                          <span>{settings.buttonText}</span>
+                                          <ArrowRight className="w-4 h-4" />
+                                        </button>
+                                      )}
+
+                                      {/* Add / Change Photo Quick Action Button */}
+                                      {!heroImgUrl && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            updateActiveBlock(bIdx, (b) => ({
+                                              ...b,
+                                              settings: {
+                                                ...(b.settings || {}),
+                                                imageUrl:
+                                                  'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
+                                                imagePosition: 'right',
+                                                aspectRatio: '16:9',
+                                              },
+                                            }));
+                                            setSelectedTarget({
+                                              blockIndex: bIdx,
+                                              elementPath: 'hero-image',
+                                              type: 'image',
+                                            });
+                                          }}
+                                          className="px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 inline-flex items-center gap-2 cursor-pointer transition-colors"
+                                        >
+                                          <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
+                                          <span>+ Add Hero Photo</span>
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+
+                                if (isBgHero) {
+                                  return (
+                                    <div
+                                      className="relative rounded-2xl overflow-hidden p-8 sm:p-12 border border-slate-800 text-left"
+                                      style={{
+                                        backgroundImage: `linear-gradient(to bottom, rgba(2, 6, 23, 0.75), rgba(2, 6, 23, 0.90)), url(${heroImgUrl})`,
+                                        backgroundSize: 'cover',
+                                        backgroundPosition: 'center',
+                                      }}
+                                    >
+                                      <div className="flex justify-end mb-4">
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedTarget({
+                                              blockIndex: bIdx,
+                                              elementPath: 'hero-image',
+                                              type: 'image',
+                                            });
+                                          }}
+                                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-2 shadow-lg ${
+                                            isHeroImgSelected
+                                              ? 'ring-2 ring-amber-400 bg-amber-400 text-slate-950'
+                                              : 'bg-slate-900/90 text-amber-300 border border-amber-400/40 hover:bg-slate-800'
+                                          }`}
+                                        >
+                                          <ImageIcon className="w-3.5 h-3.5" />
+                                          <span>Edit Background Photo</span>
+                                        </button>
+                                      </div>
+                                      {heroContentCol}
+                                    </div>
+                                  );
+                                }
+
+                                if (heroImgUrl) {
+                                  return (
+                                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                                      <div
+                                        className={`${
+                                          isLeftImg ? 'lg:col-span-7 lg:order-2' : 'lg:col-span-7'
+                                        }`}
+                                      >
+                                        {heroContentCol}
+                                      </div>
+                                      <div
+                                        className={`lg:col-span-5 ${
+                                          isLeftImg ? 'lg:order-1' : ''
+                                        }`}
+                                      >
+                                        <div
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedTarget({
+                                              blockIndex: bIdx,
+                                              elementPath: 'hero-image',
+                                              type: 'image',
+                                            });
+                                          }}
+                                          className={`relative group/himg w-full ${heroAspect} ${heroRadius} overflow-hidden border cursor-pointer transition-all ${
+                                            isHeroImgSelected
+                                              ? 'ring-4 ring-amber-400 border-amber-400 shadow-2xl shadow-amber-500/20'
+                                              : 'border-slate-800 hover:border-amber-400/70 hover:shadow-xl'
+                                          }`}
+                                        >
+                                          <img
+                                            src={heroImgUrl}
+                                            alt={settings.imageAlt || block.title || 'Hero'}
+                                            className="w-full h-full object-cover group-hover/himg:scale-105 transition-transform duration-500 ease-out"
+                                          />
+                                          <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover/himg:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]">
+                                            <span className="px-3 py-1.5 rounded-xl bg-amber-400 text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-lg">
+                                              <ImageIcon className="w-3.5 h-3.5" />
+                                              Click to Edit Photo
+                                            </span>
+                                          </div>
+                                          {isHeroImgSelected && (
+                                            <span className="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-amber-400 text-slate-950 shadow-md flex items-center gap-1">
+                                              <ImageIcon className="w-3 h-3" /> IMAGE ACTIVE
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+
+                                return heroContentCol;
+                              })()
+                            ) : (
+                              <>
+                                {/* Non-Hero Standard Header Elements (e.g. CTA/General sections) */}
+                                {settings.badgeText && (
+                                  <div className="flex">
+                                    <span
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedTarget({
+                                          blockIndex: bIdx,
+                                          elementPath: 'badge',
+                                          type: 'badge',
+                                        });
+                                      }}
+                                      className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider transition-all inline-flex items-center gap-1.5 cursor-pointer ${
+                                        selectedTarget?.blockIndex === bIdx &&
+                                        selectedTarget.elementPath === 'badge'
+                                          ? 'ring-2 ring-amber-400 bg-amber-400/20 text-amber-300'
+                                          : 'bg-primary-500/10 text-primary-400 border border-primary-500/20 hover:border-amber-400'
+                                      }`}
+                                    >
+                                      <Sparkles className="w-3 h-3 text-amber-400" />
+                                      {settings.badgeText}
+                                    </span>
+                                  </div>
+                                )}
+
+                                {block.title && (
+                                  <h2
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedTarget({
+                                        blockIndex: bIdx,
+                                        elementPath: 'title',
+                                        type: 'title',
+                                      });
+                                    }}
+                                    className={`font-black tracking-tight text-white transition-all cursor-pointer rounded-lg p-1 -m-1 text-xl sm:text-2xl ${
+                                      selectedTarget?.blockIndex === bIdx &&
+                                      selectedTarget.elementPath === 'title'
+                                        ? 'ring-2 ring-amber-400 bg-amber-400/10'
+                                        : 'hover:ring-1 hover:ring-amber-400/60'
+                                    }`}
+                                  >
+                                    {block.title}
+                                  </h2>
+                                )}
+
+                                {block.subtitle && (
+                                  <p
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedTarget({
+                                        blockIndex: bIdx,
+                                        elementPath: 'subtitle',
+                                        type: 'subtitle',
+                                      });
+                                    }}
+                                    className={`text-slate-300 text-sm sm:text-base leading-relaxed max-w-3xl transition-all cursor-pointer rounded-lg p-1 -m-1 ${
+                                      selectedTarget?.blockIndex === bIdx &&
+                                      selectedTarget.elementPath === 'subtitle'
+                                        ? 'ring-2 ring-amber-400 bg-amber-400/10'
+                                        : 'hover:ring-1 hover:ring-amber-400/60'
+                                    }`}
+                                  >
+                                    {block.subtitle}
+                                  </p>
+                                )}
+
+                                {settings.buttonText && (
+                                  <div className="pt-2">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedTarget({
+                                          blockIndex: bIdx,
+                                          elementPath: 'button',
+                                          type: 'button',
+                                        });
+                                      }}
+                                      className={`px-6 py-3 rounded-xl font-bold text-sm text-white shadow-lg transition-all cursor-pointer inline-flex items-center gap-2 ${
+                                        selectedTarget?.blockIndex === bIdx &&
+                                        selectedTarget.elementPath === 'button'
+                                          ? 'ring-4 ring-amber-400 bg-primary-600'
+                                          : 'bg-primary-600 hover:bg-primary-500 shadow-primary-500/25 hover:ring-2 hover:ring-amber-400/70'
+                                      }`}
+                                    >
+                                      <span>{settings.buttonText}</span>
+                                      <ArrowRight className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                )}
+                              </>
                             )}
 
                             {/* 5. Multi-Column Container Layout */}
@@ -1260,6 +1499,9 @@ export default function FunnelsPage() {
                                     const isColSelected =
                                       selectedTarget?.blockIndex === bIdx &&
                                       selectedTarget.elementPath === `column-${cIdx}`;
+                                    const isColImgSelected =
+                                      selectedTarget?.blockIndex === bIdx &&
+                                      selectedTarget.elementPath === `col-image-${cIdx}`;
                                     return (
                                       <div
                                         key={cIdx}
@@ -1271,12 +1513,41 @@ export default function FunnelsPage() {
                                             type: 'column',
                                           });
                                         }}
-                                        className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                                        className={`p-4 rounded-xl border transition-all cursor-pointer overflow-hidden ${
                                           isColSelected
                                             ? 'ring-2 ring-blue-400 border-blue-400 bg-blue-500/10'
                                             : 'border-slate-800 bg-slate-900/60 hover:border-blue-400/60'
                                         }`}
                                       >
+                                        {/* Column Image Preview with click selection */}
+                                        {colData.imageUrl && (
+                                          <div
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setSelectedTarget({
+                                                blockIndex: bIdx,
+                                                elementPath: `col-image-${cIdx}`,
+                                                type: 'image',
+                                              });
+                                            }}
+                                            className={`relative group/cimg w-full aspect-video rounded-lg overflow-hidden mb-2.5 border cursor-pointer ${
+                                              isColImgSelected
+                                                ? 'ring-2 ring-amber-400 border-amber-400'
+                                                : 'border-slate-800 hover:border-amber-400/60'
+                                            }`}
+                                          >
+                                            <img
+                                              src={colData.imageUrl}
+                                              alt={colData.title || 'Column image'}
+                                              className="w-full h-full object-cover group-hover/cimg:scale-105 transition-transform duration-300"
+                                            />
+                                            <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover/cimg:opacity-100 transition-opacity flex items-center justify-center">
+                                              <span className="px-2 py-0.5 rounded bg-amber-400 text-slate-950 text-[10px] font-bold flex items-center gap-1">
+                                                <ImageIcon className="w-3 h-3" /> Edit Photo
+                                              </span>
+                                            </div>
+                                          </div>
+                                        )}
                                         <div className="text-[9px] font-bold text-slate-500 uppercase">
                                           Col #{cIdx + 1}
                                         </div>
@@ -1296,6 +1567,9 @@ export default function FunnelsPage() {
                                   const isItemSelected =
                                     selectedTarget?.blockIndex === bIdx &&
                                     selectedTarget.elementPath === `item-${iIdx}`;
+                                  const isItemImgSelected =
+                                    selectedTarget?.blockIndex === bIdx &&
+                                    selectedTarget.elementPath === `item-image-${iIdx}`;
                                   return (
                                     <div
                                       key={iIdx}
@@ -1307,15 +1581,46 @@ export default function FunnelsPage() {
                                           type: 'item',
                                         });
                                       }}
-                                      className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                                      className={`p-4 rounded-xl border transition-all cursor-pointer overflow-hidden ${
                                         isItemSelected
                                           ? 'ring-2 ring-amber-400 border-amber-400 bg-amber-400/10'
                                           : 'border-slate-800 bg-slate-900/60 hover:border-amber-400/60'
                                       }`}
                                     >
-                                      <div className="w-8 h-8 rounded-lg bg-primary-600/20 text-primary-400 flex items-center justify-center font-bold text-xs mb-2">
-                                        {iIdx + 1}
-                                      </div>
+                                      {/* Feature Image with click selection */}
+                                      {item.imageUrl && (
+                                        <div
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedTarget({
+                                              blockIndex: bIdx,
+                                              elementPath: `item-image-${iIdx}`,
+                                              type: 'image',
+                                            });
+                                          }}
+                                          className={`relative group/fimg w-full aspect-video rounded-lg overflow-hidden mb-2.5 border cursor-pointer ${
+                                            isItemImgSelected
+                                              ? 'ring-2 ring-amber-400 border-amber-400'
+                                              : 'border-slate-800 hover:border-amber-400/60'
+                                          }`}
+                                        >
+                                          <img
+                                            src={item.imageUrl}
+                                            alt={item.title || 'Feature image'}
+                                            className="w-full h-full object-cover group-hover/fimg:scale-105 transition-transform duration-300"
+                                          />
+                                          <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover/fimg:opacity-100 transition-opacity flex items-center justify-center">
+                                            <span className="px-2 py-0.5 rounded bg-amber-400 text-slate-950 text-[10px] font-bold flex items-center gap-1">
+                                              <ImageIcon className="w-3 h-3" /> Edit Photo
+                                            </span>
+                                          </div>
+                                        </div>
+                                      )}
+                                      {!item.imageUrl && (
+                                        <div className="w-8 h-8 rounded-lg bg-primary-600/20 text-primary-400 flex items-center justify-center font-bold text-xs mb-2">
+                                          {iIdx + 1}
+                                        </div>
+                                      )}
                                       <h4 className="font-bold text-white text-sm">{item.title}</h4>
                                       <p className="text-xs text-slate-400 mt-1">{item.description}</p>
                                     </div>
@@ -1493,6 +1798,92 @@ export default function FunnelsPage() {
                                 </div>
                               </div>
                             )}
+
+                            {/* 10. Testimonials Block */}
+                            {block.type === 'testimonials' && (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                                {(settings.items || [
+                                  {
+                                    name: 'Marcus Vance',
+                                    role: 'Managing Partner, Vance Advisory',
+                                    quote: 'The automated lead routing and unified communications increased our conversion velocity by 340% within 60 days.',
+                                    rating: 5,
+                                    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+                                  },
+                                  {
+                                    name: 'Elena Rostova',
+                                    role: 'VP Operations, Apex Health Networks',
+                                    quote: 'Having our funnel directly connected to instantaneous SMS nurture sequences changed our client onboarding forever.',
+                                    rating: 5,
+                                    avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=400&q=80',
+                                  },
+                                ]).map((tItem: any, tIdx: number) => {
+                                  const isTestimonialSelected =
+                                    selectedTarget?.blockIndex === bIdx &&
+                                    selectedTarget.elementPath === `testimonial-${tIdx}`;
+                                  const isAvatarSelected =
+                                    selectedTarget?.blockIndex === bIdx &&
+                                    selectedTarget.elementPath === `avatar-${tIdx}`;
+                                  return (
+                                    <div
+                                      key={tIdx}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedTarget({
+                                          blockIndex: bIdx,
+                                          elementPath: `testimonial-${tIdx}`,
+                                          type: 'testimonial',
+                                        });
+                                      }}
+                                      className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-3 ${
+                                        isTestimonialSelected
+                                          ? 'ring-2 ring-amber-400 border-amber-400 bg-amber-400/10'
+                                          : 'border-slate-800 bg-slate-900/60 hover:border-amber-400/60'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-1 text-amber-400">
+                                        {[...Array(tItem.rating || 5)].map((_, i) => (
+                                          <Star key={i} className="w-3.5 h-3.5 fill-current" />
+                                        ))}
+                                      </div>
+                                      <p className="text-xs text-slate-300 italic">"{tItem.quote}"</p>
+                                      <div className="flex items-center gap-3 pt-1">
+                                        {tItem.avatarUrl ? (
+                                          <div
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setSelectedTarget({
+                                                blockIndex: bIdx,
+                                                elementPath: `avatar-${tIdx}`,
+                                                type: 'image',
+                                              });
+                                            }}
+                                            className={`relative group/av w-10 h-10 rounded-full overflow-hidden border cursor-pointer flex-shrink-0 transition-all ${
+                                              isAvatarSelected
+                                                ? 'ring-2 ring-amber-400 border-amber-400'
+                                                : 'border-slate-700 hover:border-amber-400'
+                                            }`}
+                                          >
+                                            <img src={tItem.avatarUrl} alt={tItem.name} className="w-full h-full object-cover" />
+                                            <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover/av:opacity-100 transition-opacity flex items-center justify-center">
+                                              <ImageIcon className="w-3 h-3 text-amber-300" />
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <div className="w-10 h-10 rounded-full bg-primary-600/20 text-primary-400 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                                            {tItem.name?.[0] || 'U'}
+                                          </div>
+                                        )}
+                                        <div>
+                                          <div className="font-bold text-xs text-white">{tItem.name}</div>
+                                          <div className="text-[10px] text-slate-400">{tItem.role}</div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                         </section>
 
@@ -1561,6 +1952,8 @@ export default function FunnelsPage() {
                           ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                           : selectedTarget.type === 'container' || selectedTarget.type === 'column'
                           ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                          : selectedTarget.type === 'image'
+                          ? 'bg-amber-400 text-slate-950 font-extrabold shadow-sm'
                           : 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
                       }`}
                     >
@@ -1994,6 +2387,25 @@ export default function FunnelsPage() {
                               className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500"
                             />
                           </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                              Feature Photo URL (Optional)
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="https://images.unsplash.com/..."
+                              value={item.imageUrl || ''}
+                              onChange={(e) =>
+                                updateActiveBlock(selectedTarget.blockIndex, (b) => {
+                                  const items = [...(b.settings?.items || [])];
+                                  if (items[iIdx])
+                                    items[iIdx] = { ...items[iIdx], imageUrl: e.target.value };
+                                  return { ...b, settings: { ...(b.settings || {}), items } };
+                                })
+                              }
+                              className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs font-mono focus:outline-none focus:border-amber-400"
+                            />
+                          </div>
                         </div>
                       );
                     })()}
@@ -2227,7 +2639,453 @@ export default function FunnelsPage() {
                       </div>
                     </div>
                   )}
-                </div>
+
+                  {/* Dedicated Image & Media Controls */}
+                  {selectedTarget.type === 'image' &&
+                    (() => {
+                      const isHeroImage =
+                        selectedTarget.elementPath === 'hero-image' ||
+                        selectedTarget.elementPath === 'image';
+                      const isItemImage = selectedTarget.elementPath?.startsWith('item-image-');
+                      const isColImage =
+                        selectedTarget.elementPath?.startsWith('col-image-') ||
+                        selectedTarget.elementPath?.startsWith('column-image-');
+                      const isAvatar = selectedTarget.elementPath?.startsWith('avatar-');
+
+                      let currentImageUrl = '';
+                      let currentAlt = '';
+                      const currentAspect = selectedBlock.settings?.aspectRatio || '16:9';
+                      const currentRadius = selectedBlock.settings?.borderRadius || 'rounded-2xl';
+                      const currentPosition = selectedBlock.settings?.imagePosition || 'right';
+
+                      if (isHeroImage) {
+                        currentImageUrl = selectedBlock.settings?.imageUrl || '';
+                        currentAlt = selectedBlock.settings?.imageAlt || '';
+                      } else if (isItemImage) {
+                        const iIdx = parseInt(
+                          selectedTarget.elementPath?.replace('item-image-', '') || '0',
+                          10
+                        );
+                        currentImageUrl =
+                          selectedBlock.settings?.items?.[iIdx]?.imageUrl || '';
+                        currentAlt =
+                          selectedBlock.settings?.items?.[iIdx]?.title || '';
+                      } else if (isColImage) {
+                        const cIdx = parseInt(
+                          selectedTarget.elementPath
+                            ?.replace('col-image-', '')
+                            .replace('column-image-', '') || '0',
+                          10
+                        );
+                        currentImageUrl =
+                          selectedBlock.settings?.columns?.[cIdx]?.imageUrl || '';
+                        currentAlt =
+                          selectedBlock.settings?.columns?.[cIdx]?.title || '';
+                      } else if (isAvatar) {
+                        const aIdx = parseInt(
+                          selectedTarget.elementPath?.replace('avatar-', '') || '0',
+                          10
+                        );
+                        currentImageUrl =
+                          selectedBlock.settings?.items?.[aIdx]?.avatarUrl || '';
+                        currentAlt =
+                          selectedBlock.settings?.items?.[aIdx]?.name || '';
+                      }
+
+                      const handleUpdateImageUrl = (url: string) => {
+                        updateActiveBlock(selectedTarget.blockIndex, (b) => {
+                          const s = { ...(b.settings || {}) };
+                          if (isHeroImage) {
+                            s.imageUrl = url;
+                          } else if (isItemImage) {
+                            const iIdx = parseInt(
+                              selectedTarget.elementPath?.replace('item-image-', '') || '0',
+                              10
+                            );
+                            const items = [...(s.items || [])];
+                            if (items[iIdx]) items[iIdx] = { ...items[iIdx], imageUrl: url };
+                            s.items = items;
+                          } else if (isColImage) {
+                            const cIdx = parseInt(
+                              selectedTarget.elementPath
+                                ?.replace('col-image-', '')
+                                .replace('column-image-', '') || '0',
+                              10
+                            );
+                            const columns = [...(s.columns || [])];
+                            if (columns[cIdx]) columns[cIdx] = { ...columns[cIdx], imageUrl: url };
+                            s.columns = columns;
+                          } else if (isAvatar) {
+                            const aIdx = parseInt(
+                              selectedTarget.elementPath?.replace('avatar-', '') || '0',
+                              10
+                            );
+                            const items = [...(s.items || [])];
+                            if (items[aIdx]) items[aIdx] = { ...items[aIdx], avatarUrl: url };
+                            s.items = items;
+                          }
+                          return { ...b, settings: s };
+                        });
+                      };
+
+                      const handleUpdateAlt = (alt: string) => {
+                        if (isHeroImage) {
+                          updateActiveBlock(selectedTarget.blockIndex, (b) => ({
+                            ...b,
+                            settings: { ...(b.settings || {}), imageAlt: alt },
+                          }));
+                        }
+                      };
+
+                      const presets = (NICHE_IMAGE_PRESETS as any)[selectedPresetNiche] || [];
+
+                      return (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                              <ImageIcon className="w-3.5 h-3.5" />
+                              {isHeroImage
+                                ? 'Hero Section Photo'
+                                : isItemImage
+                                ? 'Feature Item Photo'
+                                : isColImage
+                                ? 'Column Photo'
+                                : isAvatar
+                                ? 'Reviewer Avatar'
+                                : 'Image Element'}
+                            </span>
+                            {currentImageUrl && (
+                              <button
+                                onClick={() => handleUpdateImageUrl('')}
+                                className="text-[10px] font-semibold text-rose-400 hover:text-rose-300 cursor-pointer"
+                              >
+                                Remove Image
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Image Live Preview */}
+                          <div className="relative w-full aspect-video rounded-xl bg-slate-950 border border-slate-800 overflow-hidden flex items-center justify-center">
+                            {currentImageUrl ? (
+                              <img
+                                src={currentImageUrl}
+                                alt={currentAlt || 'Preview'}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="text-center p-4 text-slate-500 space-y-1">
+                                <ImageIcon className="w-6 h-6 mx-auto opacity-50" />
+                                <div className="text-[11px] font-medium">No image set</div>
+                                <div className="text-[10px] text-slate-600">
+                                  Paste URL or select preset below
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Direct URL input */}
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                              Image URL (CDN / Unsplash / Direct)
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="https://images.unsplash.com/..."
+                              value={currentImageUrl}
+                              onChange={(e) => handleUpdateImageUrl(e.target.value)}
+                              className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs font-mono focus:outline-none focus:border-amber-400"
+                            />
+                          </div>
+
+                          {/* Alt text input (for SEO) */}
+                          {isHeroImage && (
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                                Alt Text & Description (SEO)
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="e.g. Modern executive suite consultation"
+                                value={currentAlt}
+                                onChange={(e) => handleUpdateAlt(e.target.value)}
+                                className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-amber-400"
+                              />
+                            </div>
+                          )}
+
+                          {/* Layout & Aspect Options for Hero Image */}
+                          {isHeroImage && (
+                            <div className="space-y-3 pt-2 border-t border-slate-800">
+                              <div>
+                                <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                                  Layout Position
+                                </label>
+                                <div className="grid grid-cols-3 gap-1.5">
+                                  {[
+                                    { id: 'right', label: 'Split Right' },
+                                    { id: 'left', label: 'Split Left' },
+                                    { id: 'background', label: 'Background' },
+                                  ].map((pos) => (
+                                    <button
+                                      key={pos.id}
+                                      onClick={() =>
+                                        updateActiveBlock(selectedTarget.blockIndex, (b) => ({
+                                          ...b,
+                                          settings: {
+                                            ...(b.settings || {}),
+                                            imagePosition: pos.id,
+                                          },
+                                        }))
+                                      }
+                                      className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer ${
+                                        currentPosition === pos.id
+                                          ? 'bg-amber-400 text-slate-950 border-amber-400 font-bold'
+                                          : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
+                                      }`}
+                                    >
+                                      {pos.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                                  Aspect Ratio
+                                </label>
+                                <div className="grid grid-cols-4 gap-1.5">
+                                  {['16:9', '4:3', '1:1', '3:4'].map((ratio) => (
+                                    <button
+                                      key={ratio}
+                                      onClick={() =>
+                                        updateActiveBlock(selectedTarget.blockIndex, (b) => ({
+                                          ...b,
+                                          settings: {
+                                            ...(b.settings || {}),
+                                            aspectRatio: ratio,
+                                          },
+                                        }))
+                                      }
+                                      className={`py-1 px-1.5 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer ${
+                                        currentAspect === ratio
+                                          ? 'bg-amber-400 text-slate-950 border-amber-400 font-bold'
+                                          : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
+                                      }`}
+                                    >
+                                      {ratio}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                                  Corner Rounding
+                                </label>
+                                <div className="grid grid-cols-4 gap-1.5">
+                                  {[
+                                    { id: 'rounded-none', label: 'Square' },
+                                    { id: 'rounded-xl', label: 'Medium' },
+                                    { id: 'rounded-2xl', label: 'Large' },
+                                    { id: 'rounded-3xl', label: 'X-Large' },
+                                  ].map((rnd) => (
+                                    <button
+                                      key={rnd.id}
+                                      onClick={() =>
+                                        updateActiveBlock(selectedTarget.blockIndex, (b) => ({
+                                          ...b,
+                                          settings: {
+                                            ...(b.settings || {}),
+                                            borderRadius: rnd.id,
+                                          },
+                                        }))
+                                      }
+                                      className={`py-1 px-1.5 rounded-lg text-[10px] font-semibold border transition-colors cursor-pointer ${
+                                        currentRadius === rnd.id
+                                          ? 'bg-amber-400 text-slate-950 border-amber-400 font-bold'
+                                          : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
+                                      }`}
+                                    >
+                                      {rnd.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 1-Click Curated Presets Library */}
+                          <div className="pt-3 border-t border-slate-800 space-y-2.5">
+                            <div className="flex items-center justify-between">
+                              <label className="block text-[11px] font-bold text-white uppercase tracking-wider">
+                                1-Click Curated Presets
+                              </label>
+                              <span className="text-[10px] text-amber-400 font-medium">Instant Swap</span>
+                            </div>
+                            <p className="text-[11px] text-slate-400 leading-normal">
+                              High-resolution Unsplash photography matching your client's industry:
+                            </p>
+
+                            {/* Niche selector pills */}
+                            <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none">
+                              {[
+                                { id: 'agency_b2b', label: 'Agency & B2B' },
+                                { id: 'healthcare', label: 'Healthcare' },
+                                { id: 'fitness_wellness', label: 'Fitness' },
+                                { id: 'home_services', label: 'Home Services' },
+                                { id: 'legal_finance', label: 'Legal & Fin' },
+                                { id: 'real_estate', label: 'Real Estate' },
+                                { id: 'automotive', label: 'Automotive' },
+                              ].map((n) => (
+                                <button
+                                  key={n.id}
+                                  onClick={() => setSelectedPresetNiche(n.id)}
+                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                                    selectedPresetNiche === n.id
+                                      ? 'bg-primary-600 text-white font-bold'
+                                      : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                                  }`}
+                                >
+                                  {n.label}
+                                </button>
+                              ))}
+                            </div>
+
+                            {/* Preset Thumbnails Grid */}
+                            <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+                              {presets.map((preset: any, pIdx: number) => {
+                                const isCurrent = currentImageUrl === preset.url;
+                                return (
+                                  <div
+                                    key={pIdx}
+                                    onClick={() => {
+                                      handleUpdateImageUrl(preset.url);
+                                      handleUpdateAlt(preset.alt);
+                                    }}
+                                    className={`group/preset relative aspect-video rounded-lg overflow-hidden border cursor-pointer transition-all ${
+                                      isCurrent
+                                        ? 'ring-2 ring-emerald-400 border-emerald-400 shadow-md shadow-emerald-500/20'
+                                        : 'border-slate-700 hover:border-amber-400 hover:scale-[1.02]'
+                                    }`}
+                                  >
+                                    <img
+                                      src={preset.url}
+                                      alt={preset.alt}
+                                      className="w-full h-full object-cover"
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex items-end p-1.5">
+                                      <span className="text-[9px] font-medium text-white truncate max-w-full">
+                                        {preset.alt}
+                                      </span>
+                                    </div>
+                                    {isCurrent && (
+                                      <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center shadow-md">
+                                        <Check className="w-3 h-3 stroke-[3]" />
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                  {/* Testimonial Controls */}
+                  {selectedTarget.type === 'testimonial' &&
+                    (() => {
+                      const tIdx = parseInt(
+                        selectedTarget.elementPath?.replace('testimonial-', '') || '0',
+                        10
+                      );
+                      const tItem =
+                        (selectedBlock.settings?.items &&
+                          selectedBlock.settings.items[tIdx]) || {
+                          name: '',
+                          role: '',
+                          quote: '',
+                          rating: 5,
+                          avatarUrl: '',
+                        };
+                      return (
+                        <div className="space-y-4">
+                          <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                            Editing Testimonial #{tIdx + 1}
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                              Client / Reviewer Name
+                            </label>
+                            <input
+                              type="text"
+                              value={tItem.name || ''}
+                              onChange={(e) =>
+                                updateActiveBlock(selectedTarget.blockIndex, (b) => {
+                                  const items = [...(b.settings?.items || [])];
+                                  if (items[tIdx]) items[tIdx] = { ...items[tIdx], name: e.target.value };
+                                  return { ...b, settings: { ...(b.settings || {}), items } };
+                                })
+                              }
+                              className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                              Role / Organization
+                            </label>
+                            <input
+                              type="text"
+                              value={tItem.role || ''}
+                              onChange={(e) =>
+                                updateActiveBlock(selectedTarget.blockIndex, (b) => {
+                                  const items = [...(b.settings?.items || [])];
+                                  if (items[tIdx]) items[tIdx] = { ...items[tIdx], role: e.target.value };
+                                  return { ...b, settings: { ...(b.settings || {}), items } };
+                                })
+                              }
+                              className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                              Quote / Review
+                            </label>
+                            <textarea
+                              rows={3}
+                              value={tItem.quote || ''}
+                              onChange={(e) =>
+                                updateActiveBlock(selectedTarget.blockIndex, (b) => {
+                                  const items = [...(b.settings?.items || [])];
+                                  if (items[tIdx]) items[tIdx] = { ...items[tIdx], quote: e.target.value };
+                                  return { ...b, settings: { ...(b.settings || {}), items } };
+                                })
+                              }
+                              className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                              Avatar Photo URL
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="https://images.unsplash.com/..."
+                              value={tItem.avatarUrl || ''}
+                              onChange={(e) =>
+                                updateActiveBlock(selectedTarget.blockIndex, (b) => {
+                                  const items = [...(b.settings?.items || [])];
+                                  if (items[tIdx]) items[tIdx] = { ...items[tIdx], avatarUrl: e.target.value };
+                                  return { ...b, settings: { ...(b.settings || {}), items } };
+                                })
+                              }
+                              className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs font-mono focus:outline-none focus:border-amber-400"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
 
                 {/* Inspector Footer */}
                 <div className="p-4 border-t border-slate-800 bg-slate-950/50 flex flex-col gap-2">
@@ -2620,94 +3478,121 @@ export default function FunnelsPage() {
                 })}
               </div>
 
-              {/* Templates Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Templates Grid (Rocket.new Style) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredTemplates.map((template) => (
                   <div
                     key={template.id}
-                    className="p-6 rounded-3xl bg-surface-card border border-border hover:border-slate-600 transition-all flex flex-col justify-between group space-y-4"
+                    className="rounded-3xl bg-surface-card border border-border hover:border-slate-600 transition-all flex flex-col justify-between group overflow-hidden shadow-lg hover:shadow-2xl hover:shadow-primary-500/10"
                   >
-                    <div className="space-y-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span
-                            className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border"
-                            style={{
-                              backgroundColor: `${template.accentColor}20`,
-                              borderColor: `${template.accentColor}50`,
-                              color: template.accentColor,
-                            }}
-                          >
-                            {template.badge}
-                          </span>
-                          <span className="text-[11px] text-slate-400 font-medium">
-                            {template.categoryLabel}
-                          </span>
+                    {/* 16:9 Realistic Cover Screenshot with Hover Overlay */}
+                    <div className="relative w-full aspect-video overflow-hidden bg-slate-900 flex-shrink-0">
+                      {template.thumbnailUrl ? (
+                        <img
+                          src={template.thumbnailUrl}
+                          alt={template.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-500">
+                          <ImageIcon className="w-8 h-8" />
                         </div>
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-surface-elevated border border-border text-slate-300">
+                      )}
+
+                      {/* Subtle dark gradient overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/40 pointer-events-none" />
+
+                      {/* Top floating badges */}
+                      <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10">
+                        <span
+                          className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border shadow-md"
+                          style={{
+                            backgroundColor: `${template.accentColor}35`,
+                            borderColor: `${template.accentColor}90`,
+                            color: '#ffffff',
+                          }}
+                        >
+                          {template.badge}
+                        </span>
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-slate-950/80 backdrop-blur-md border border-white/15 text-slate-200 shadow-md">
                           {template.stepsCount} Pages
                         </span>
                       </div>
 
-                      <div>
-                        <h3 className="font-bold text-base text-white group-hover:text-primary-400 transition-colors">
-                          {template.name}
-                        </h3>
-                        <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                          {template.description}
-                        </p>
-                      </div>
-
-                      {/* Journey steps preview */}
-                      <div className="p-3 rounded-2xl bg-surface-elevated/40 border border-border/60 space-y-1.5">
-                        <div className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">
-                          Funnel Architecture
-                        </div>
-                        <div className="flex items-center gap-1.5 overflow-x-auto py-1">
-                          {template.steps.map((step, idx) => (
-                            <React.Fragment key={idx}>
-                              <div className="px-2 py-0.5 rounded bg-surface-card border border-border text-[11px] font-medium text-slate-300 truncate max-w-[140px]">
-                                {idx + 1}. {step.name}
-                              </div>
-                              {idx < template.steps.length - 1 && (
-                                <ArrowRight className="w-3 h-3 text-slate-600 flex-shrink-0" />
-                              )}
-                            </React.Fragment>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Included block types chips */}
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {Array.from(new Set(template.steps.flatMap((s) => s.blocks.map((b) => b.type)))).map((bt) => (
-                          <span
-                            key={bt}
-                            className="px-2 py-0.5 rounded-md text-[10px] bg-surface-elevated text-slate-400 border border-border capitalize"
-                          >
-                            {bt.replace('_', ' ')}
-                          </span>
-                        ))}
+                      {/* Hover Actions Overlay (Rocket.new style) */}
+                      <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-all duration-250 flex items-center justify-center gap-3 p-4 z-20">
+                        <button
+                          onClick={() => setPreviewTemplate(template)}
+                          className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-white/15 hover:bg-white/25 border border-white/25 text-white backdrop-blur-md transition-all cursor-pointer flex items-center gap-1.5 shadow-xl transform translate-y-2 group-hover:translate-y-0 duration-200"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          Live Preview
+                        </button>
+                        <button
+                          disabled={isDeployingTemplate}
+                          onClick={() => handleApplyTemplate(template)}
+                          className="px-4 py-2 rounded-xl text-xs font-semibold bg-primary-600 hover:bg-primary-500 text-white shadow-xl shadow-primary-500/40 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50 transform translate-y-2 group-hover:translate-y-0 duration-200"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                          Use Template
+                        </button>
                       </div>
                     </div>
 
-                    {/* Actions */}
-                    <div className="pt-4 border-t border-border/60 flex items-center justify-between gap-3">
-                      <button
-                        onClick={() => setPreviewTemplate(template)}
-                        className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-surface-elevated hover:bg-surface-elevated/80 border border-border text-slate-300 hover:text-white transition-colors cursor-pointer flex items-center gap-1.5"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        Preview Structure
-                      </button>
+                    {/* Card Body */}
+                    <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-semibold text-primary-400">
+                            {template.categoryLabel}
+                          </span>
+                        </div>
+                        <h3 className="font-bold text-base text-white group-hover:text-primary-400 transition-colors leading-snug">
+                          {template.name}
+                        </h3>
+                        <p className="text-xs text-slate-400 leading-relaxed line-clamp-2">
+                          {template.description}
+                        </p>
 
-                      <button
-                        disabled={isDeployingTemplate}
-                        onClick={() => handleApplyTemplate(template)}
-                        className="px-4 py-2 rounded-xl text-xs font-semibold bg-primary-600 hover:bg-primary-500 text-white shadow-md shadow-primary-500/20 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                        {isDeployingTemplate ? 'Deploying...' : 'Use Template'}
-                      </button>
+                        {/* Funnel Steps Flow */}
+                        <div className="p-2.5 rounded-xl bg-surface-elevated/40 border border-border/60">
+                          <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1.5">
+                            Journey Architecture
+                          </div>
+                          <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 scrollbar-none">
+                            {template.steps.map((step, idx) => (
+                              <React.Fragment key={idx}>
+                                <span className="px-2 py-0.5 rounded bg-surface-card border border-border text-[10px] font-medium text-slate-300 truncate max-w-[120px]">
+                                  {idx + 1}. {step.name}
+                                </span>
+                                {idx < template.steps.length - 1 && (
+                                  <ArrowRight className="w-2.5 h-2.5 text-slate-600 flex-shrink-0" />
+                                )}
+                              </React.Fragment>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card Footer Actions */}
+                      <div className="pt-3 border-t border-border/60 flex items-center justify-between gap-2">
+                        <button
+                          onClick={() => setPreviewTemplate(template)}
+                          className="px-3 py-1.5 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-surface-elevated transition-colors cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          View Steps
+                        </button>
+
+                        <button
+                          disabled={isDeployingTemplate}
+                          onClick={() => handleApplyTemplate(template)}
+                          className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-primary-600/90 hover:bg-primary-600 text-white shadow-sm shadow-primary-500/20 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          <Sparkles className="w-3 h-3 text-amber-300" />
+                          {isDeployingTemplate ? 'Deploying...' : 'Use Template'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}

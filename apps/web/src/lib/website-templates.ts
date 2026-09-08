@@ -1,16 +1,23 @@
 export interface TemplateBlock {
-  type: 'hero' | 'features' | 'testimonials' | 'pricing' | 'form_embed' | 'cta' | 'video';
+  type: 'hero' | 'features' | 'testimonials' | 'pricing' | 'form_embed' | 'cta' | 'video' | 'container' | 'columns';
   title: string;
   subtitle?: string;
   settings?: {
     badgeText?: string;
     buttonText?: string;
     buttonVariant?: string;
+    imageUrl?: string;
+    imageAlt?: string;
+    imagePosition?: 'right' | 'left' | 'background';
+    aspectRatio?: '16:9' | '4:3' | '1:1' | '3:4';
+    borderRadius?: 'rounded-xl' | 'rounded-2xl' | 'rounded-3xl' | 'rounded-full';
     items?: Array<{
       title?: string;
       description?: string;
+      imageUrl?: string;
       name?: string;
       role?: string;
+      avatarUrl?: string;
       quote?: string;
       rating?: number;
     }>;
@@ -33,11 +40,76 @@ export interface WebsiteTemplate {
   categoryLabel: string;
   badge: string;
   accentColor: string;
+  thumbnailUrl: string;
   description: string;
   suggestedSlug: string;
   stepsCount: number;
   steps: TemplateStep[];
 }
+
+export interface NicheImagePreset {
+  label: string;
+  url: string;
+}
+
+export const NICHE_IMAGE_PRESETS: Record<string, NicheImagePreset[]> = {
+  healthcare: [
+    { label: 'Modern Dental Clinic', url: 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Doctor Consultation', url: 'https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Cosmetic Smile Care', url: 'https://images.unsplash.com/photo-1606811841689-23dfddce3e95?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'High-Tech Surgery', url: 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Friendly Dentist', url: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Bright Treatment Suite', url: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=1200&q=80' },
+  ],
+  fitness_wellness: [
+    { label: 'Luxury MedSpa Interior', url: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Aesthetic Facial Care', url: 'https://images.unsplash.com/photo-1512290900672-1f0233331899?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Modern Athletic Gym', url: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'CrossFit Training', url: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Personal Training Studio', url: 'https://images.unsplash.com/photo-1574680096145-d05b474e2155?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Wellness Rejuvenation', url: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1200&q=80' },
+  ],
+  home_services: [
+    { label: 'Architectural Solar Roof', url: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Rooftop Solar Installation', url: 'https://images.unsplash.com/photo-1508873696983-2df5293cb32f?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Smart HVAC Climate Unit', url: 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Technician Inspection', url: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Clean Energy Home', url: 'https://images.unsplash.com/photo-1509391365360-2e959784a276?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Modern Home Exterior', url: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=1200&q=80' },
+  ],
+  legal_finance: [
+    { label: 'Corporate Law Boardroom', url: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Senior Attorney Meeting', url: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Financial Analytics Suite', url: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Wealth Advisory Consultation', url: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Skyscraper Executive Office', url: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Private Client Consultation', url: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&w=1200&q=80' },
+  ],
+  real_estate: [
+    { label: 'Luxury Architectural Villa', url: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Modern Interior Living', url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Infinity Pool & Sunset', url: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Contemporary Kitchen', url: 'https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Penthouse Skyline View', url: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Estate Front Facade', url: 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=1200&q=80' },
+  ],
+  agency_b2b: [
+    { label: 'Collaborative Growth Agency', url: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'SaaS Dashboard Analytics', url: 'https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Strategy Brainstorming', url: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Product Design Sprint', url: 'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Modern Tech Workspace', url: 'https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Executive Team Briefing', url: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80' },
+  ],
+  automotive: [
+    { label: 'Exotic Supercar Detailing', url: 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Ceramic Coating Reflection', url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Luxury Sports Studio', url: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Precision Polishing', url: 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Hypercar Showroom', url: 'https://images.unsplash.com/photo-1542282088-72c9c27ed0cd?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Custom Detailing Bay', url: 'https://images.unsplash.com/photo-1526726538690-5cbf956ae2fd?auto=format&fit=crop&w=1200&q=80' },
+  ],
+};
 
 export const TEMPLATE_CATEGORIES = [
   { id: 'all', label: 'All Niches' },
@@ -59,6 +131,7 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
     categoryLabel: 'Healthcare & Dental',
     badge: 'Dental & Orthodontics',
     accentColor: '#06b6d4',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&w=1200&q=80',
     suggestedSlug: 'premier-dental-smile',
     description: 'High-converting lead funnel for cosmetic dentistry, full-arch dental implants, and Invisalign consultations.',
     stepsCount: 2,
@@ -74,6 +147,10 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
             title: 'Restore Your Confident Smile in Just One Day',
             subtitle: 'Board-certified implant specialists and cosmetic dentists using 3D guided surgery. Schedule your free 3D digital smile scan and $1,500 treatment credit.',
             settings: {
+              imageUrl: 'https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&w=1000&q=80',
+              imagePosition: 'right',
+              aspectRatio: '16:9',
+              borderRadius: 'rounded-2xl',
               badgeText: 'Board-Certified Dental Specialists',
               buttonText: 'Claim Your Free 3D Smile Scan',
               buttonVariant: 'primary',
@@ -115,12 +192,14 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
                   role: 'Full-Arch Implant Patient',
                   quote: 'I hid my teeth for over 15 years. The team was compassionate, the surgery was painless, and I can eat steak again without thinking twice!',
                   rating: 5,
+                  avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
                 },
                 {
                   name: 'Dr. Emily Watson',
                   role: 'Cosmetic Veneers & Invisalign',
                   quote: 'The level of clinical precision and artistic attention to detail is unmatched. Worth every single penny.',
                   rating: 5,
+                  avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
                 },
               ],
             },
@@ -162,6 +241,7 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
     categoryLabel: 'Fitness & MedSpa',
     badge: 'Aesthetics & Wellness',
     accentColor: '#ec4899',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=1200&q=80',
     suggestedSlug: 'aura-medical-aesthetics',
     description: 'Luxury aesthetic clinic template featuring Botox, dermal fillers, laser skin rejuvenation, and body contouring.',
     stepsCount: 2,
@@ -177,6 +257,10 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
             title: 'Natural Facial Rejuvenation & Non-Surgical Body Sculpting',
             subtitle: 'Physician-led luxury medspa delivering subtle, youth-restoring results. Receive $100 toward your first Botox or Hydrafacial treatment.',
             settings: {
+              imageUrl: 'https://images.unsplash.com/photo-1512290900672-1f0233331899?auto=format&fit=crop&w=1000&q=80',
+              imagePosition: 'right',
+              aspectRatio: '16:9',
+              borderRadius: 'rounded-2xl',
               badgeText: 'Physician-Supervised Medical Spa',
               buttonText: 'Claim Your $100 VIP Voucher',
               buttonVariant: 'primary',
@@ -218,12 +302,14 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
                   role: 'VIP Member',
                   quote: 'I look rested, refreshed, and 10 years younger. Nobody can tell I had anything done — they just ask what skincare I use!',
                   rating: 5,
+                  avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
                 },
                 {
                   name: 'Sofia Reyes',
                   role: 'Morpheus8 & Filler Client',
                   quote: 'The luxury atmosphere and physician expertise make this the premier aesthetics clinic in town.',
                   rating: 5,
+                  avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
                 },
               ],
             },
@@ -265,6 +351,7 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
     categoryLabel: 'Legal & Financial',
     badge: 'Legal Counsel',
     accentColor: '#8b5cf6',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=1200&q=80',
     suggestedSlug: 'apex-injury-law',
     description: 'High-authority personal injury and litigation legal template with free case evaluations and zero-fee guarantee.',
     stepsCount: 2,
@@ -280,6 +367,10 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
             title: 'Relentless Representation. Over $75M+ Recovered For Injury Victims.',
             subtitle: 'If you were injured in an auto accident or catastrophic collision, do not settle with the insurance company alone. We fight for maximum financial recovery.',
             settings: {
+              imageUrl: 'https://images.unsplash.com/photo-1505664194779-8beaceb93744?auto=format&fit=crop&w=1000&q=80',
+              imagePosition: 'right',
+              aspectRatio: '16:9',
+              borderRadius: 'rounded-2xl',
               badgeText: 'No Fee Unless We Win Your Case',
               buttonText: 'Get Free Instant Case Evaluation',
               buttonVariant: 'primary',
@@ -321,6 +412,7 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
                   role: '$2.4M Truck Accident Settlement',
                   quote: 'When the insurance company offered an insulting settlement, Apex took them to federal court and secured the financial future of my family.',
                   rating: 5,
+                  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
                 },
               ],
             },
@@ -362,6 +454,7 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
     categoryLabel: 'Home Services & Trades',
     badge: 'Roofing & Solar',
     accentColor: '#f59e0b',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1200&q=80',
     suggestedSlug: 'titan-roofing-solar',
     description: 'High-converting homeowner quote engine for roof replacements, storm restoration, and $0-down solar installs.',
     stepsCount: 2,
@@ -377,6 +470,10 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
             title: 'Protect Your Home With A Lifetime Roofing System & $0 Down Solar',
             subtitle: 'Factory-certified GAF Master Elite installers. Comprehensive storm damage assessments, insurance claim support, and 50-year warranty protection.',
             settings: {
+              imageUrl: 'https://images.unsplash.com/photo-1508873696983-2df5293cb32f?auto=format&fit=crop&w=1000&q=80',
+              imagePosition: 'right',
+              aspectRatio: '16:9',
+              borderRadius: 'rounded-2xl',
               badgeText: 'Licensed, Bonded & 5-Star Rated',
               buttonText: 'Schedule Free Drone Roof Inspection',
               buttonVariant: 'primary',
@@ -418,6 +515,7 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
                   role: 'Homeowners in Oak Ridge',
                   quote: 'After the spring hailstorm, Titan handled the entire insurance adjuster meeting and installed a gorgeous architectural roof in one single day!',
                   rating: 5,
+                  avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
                 },
               ],
             },
@@ -459,6 +557,7 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
     categoryLabel: 'Home Services & Trades',
     badge: 'Plumbing & HVAC',
     accentColor: '#3b82f6',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=1200&q=80',
     suggestedSlug: 'rapidflow-plumbing-hvac',
     description: 'High-urgency emergency service template with 60-minute dispatch, flat-rate pricing, and coupon vouchers.',
     stepsCount: 2,
@@ -474,6 +573,10 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
             title: '60-Minute Emergency Plumbing, Drain & HVAC Repair',
             subtitle: 'Burst pipe, clogged sewer, or failed AC? Licensed technicians dispatched immediately. Upfront flat-rate pricing — no overtime surprise fees.',
             settings: {
+              imageUrl: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=1000&q=80',
+              imagePosition: 'right',
+              aspectRatio: '16:9',
+              borderRadius: 'rounded-2xl',
               badgeText: '24/7 Live Emergency Dispatch',
               buttonText: 'Dispatch Technician ($50 Off Coupon)',
               buttonVariant: 'primary',
@@ -541,6 +644,7 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
     categoryLabel: 'Real Estate & Properties',
     badge: 'Luxury Real Estate',
     accentColor: '#10b981',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80',
     suggestedSlug: 'vanguard-luxury-estates',
     description: 'Premier showcase template for luxury property developers, high-end brokerages, and private architectural estates.',
     stepsCount: 2,
@@ -556,6 +660,10 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
             title: 'Exclusive Off-Market Estates & Architectural Residences',
             subtitle: 'Access private pocket listings, waterfront estates, and luxury penthouses unavailable on public MLS databases.',
             settings: {
+              imageUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1000&q=80',
+              imagePosition: 'right',
+              aspectRatio: '16:9',
+              borderRadius: 'rounded-2xl',
               badgeText: 'Private Client Real Estate Advisory',
               buttonText: 'Request VIP Off-Market Portfolio',
               buttonVariant: 'primary',
@@ -623,6 +731,7 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
     categoryLabel: 'Digital Agency & B2B',
     badge: 'B2B Growth & RevOps',
     accentColor: '#6366f1',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
     suggestedSlug: 'revenue-engine-b2b',
     description: 'Performance marketing, pipeline generation, and RevOps consulting funnel for enterprise service companies.',
     stepsCount: 2,
@@ -638,6 +747,10 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
             title: 'We Build Predictable Revenue Engines For B2B Leaders',
             subtitle: 'Stop relying on referrals and cold outreach. We architect full-funnel acquisition systems that add $1M–$5M in pipeline velocity.',
             settings: {
+              imageUrl: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=1000&q=80',
+              imagePosition: 'right',
+              aspectRatio: '16:9',
+              borderRadius: 'rounded-2xl',
               badgeText: 'Performance-Guaranteed Pipeline Scale',
               buttonText: 'Request Custom Growth Blueprint',
               buttonVariant: 'primary',
@@ -679,6 +792,7 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
                   role: 'CEO, CloudScale Solutions',
                   quote: 'RevenueEngine scaled our qualified sales pipeline from $300k/mo to $1.8M/mo within our first 90 days. Flawless execution.',
                   rating: 5,
+                  avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
                 },
               ],
             },
@@ -720,6 +834,7 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
     categoryLabel: 'Fitness & MedSpa',
     badge: 'Fitness & Athletics',
     accentColor: '#e11d48',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80',
     suggestedSlug: 'crossiron-fitness-coaching',
     description: 'High-energy 6-week fitness challenge and transformation bootcamp funnel with member transformation stories.',
     stepsCount: 2,
@@ -735,6 +850,10 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
             title: 'Lose 15–20 Lbs, Build Lean Muscle & Reclaim Your Energy in 42 Days',
             subtitle: 'Join our proven 6-Week Total Body Transformation Challenge. Personalized coaching, custom meal planning, and an unbeatable community.',
             settings: {
+              imageUrl: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1000&q=80',
+              imagePosition: 'right',
+              aspectRatio: '16:9',
+              borderRadius: 'rounded-2xl',
               badgeText: 'Next Challenge Batch Starting Monday',
               buttonText: 'Apply For The 6-Week Challenge',
               buttonVariant: 'primary',
@@ -802,6 +921,7 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
     categoryLabel: 'Legal & Financial',
     badge: 'Accounting & Tax',
     accentColor: '#059669',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=1200&q=80',
     suggestedSlug: 'capitalguard-cpa-tax',
     description: 'Proactive tax reduction planning, fractional CFO services, and multi-entity wealth protection for business owners.',
     stepsCount: 2,
@@ -817,6 +937,10 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
             title: 'Legally Slash Your Business Taxes By $25k–$150k+ Every Single Year',
             subtitle: 'Most accountants just record history. We proactively architect legal entity structures and tax deductions that keep your hard-earned wealth in your pocket.',
             settings: {
+              imageUrl: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1000&q=80',
+              imagePosition: 'right',
+              aspectRatio: '16:9',
+              borderRadius: 'rounded-2xl',
               badgeText: 'Licensed CPAs & Tax Strategists',
               buttonText: 'Schedule Strategic Tax Review',
               buttonVariant: 'primary',
@@ -884,6 +1008,7 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
     categoryLabel: 'Automotive & Detailing',
     badge: 'Automotive Styling',
     accentColor: '#ea580c',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?auto=format&fit=crop&w=1200&q=80',
     suggestedSlug: 'obsidian-auto-styling',
     description: 'High-end ceramic coating, self-healing paint protection film (PPF), and concourse paint correction showcase.',
     stepsCount: 2,
@@ -899,6 +1024,10 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
             title: 'Permanent Showroom Gloss & Rock Chip Protection For Your Vehicle',
             subtitle: 'Certified installers of 9H multi-year ceramic coatings, self-healing paint protection film, and multi-stage paint correction.',
             settings: {
+              imageUrl: 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=1000&q=80',
+              imagePosition: 'right',
+              aspectRatio: '16:9',
+              borderRadius: 'rounded-2xl',
               badgeText: 'Certified Ceramic Pro & XPEL Studio',
               buttonText: 'Get Instant Custom Vehicle Quote',
               buttonVariant: 'primary',

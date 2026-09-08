@@ -158,6 +158,156 @@ export default function PublicFunnelPage() {
         {currentStep.blocks?.map((block: any, bIdx: number) => {
           switch (block.type) {
             case 'hero':
+              const heroImgUrl = block.settings?.imageUrl;
+              const isBgHero = block.settings?.imagePosition === 'background' && heroImgUrl;
+              const isLeftImg = block.settings?.imagePosition === 'left';
+              const heroAspect =
+                block.settings?.aspectRatio === '4:3'
+                  ? 'aspect-[4/3]'
+                  : block.settings?.aspectRatio === '1:1'
+                  ? 'aspect-square'
+                  : block.settings?.aspectRatio === '3:4'
+                  ? 'aspect-[3/4]'
+                  : 'aspect-video';
+              const heroRadius = block.settings?.borderRadius || 'rounded-2xl';
+
+              if (isBgHero) {
+                return (
+                  <div
+                    key={block.id || bIdx}
+                    className="relative rounded-3xl overflow-hidden p-8 sm:p-16 text-center space-y-6 shadow-2xl border border-slate-800 my-4"
+                    style={{
+                      backgroundImage: `linear-gradient(to bottom, rgba(2, 6, 23, 0.75), rgba(2, 6, 23, 0.90)), url(${heroImgUrl})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                    }}
+                  >
+                    {block.settings?.badgeText && (
+                      <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-semibold bg-primary-500/20 text-primary-300 border border-primary-500/30 shadow-sm backdrop-blur-md">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>{block.settings.badgeText}</span>
+                      </div>
+                    )}
+                    <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight max-w-3xl mx-auto">
+                      {block.title}
+                    </h1>
+                    {block.subtitle && (
+                      <p className="text-sm sm:text-base text-slate-300 max-w-2xl mx-auto leading-relaxed">
+                        {block.subtitle}
+                      </p>
+                    )}
+                    <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                      {block.settings?.buttonText && (
+                        <button
+                          onClick={() => {
+                            const url = block.settings.buttonUrl;
+                            if (url && url.startsWith('#')) {
+                              const target = document.querySelector(url) || document.getElementById('funnel-embedded-form');
+                              if (target) target.scrollIntoView({ behavior: 'smooth' });
+                            } else if (url && url !== '#') {
+                              window.open(url, '_blank');
+                            } else {
+                              const formEl = document.getElementById('funnel-embedded-form');
+                              if (formEl) formEl.scrollIntoView({ behavior: 'smooth' });
+                            }
+                          }}
+                          className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary-600 hover:bg-primary-500 text-white font-semibold text-sm shadow-xl shadow-primary-500/25 transition-all cursor-pointer"
+                        >
+                          <span>{block.settings.buttonText}</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                      )}
+                      {block.settings?.secondaryButtonText && (
+                        <button
+                          onClick={() => {
+                            const url = block.settings.secondaryButtonUrl;
+                            if (url && url.startsWith('#')) {
+                              const target = document.querySelector(url);
+                              if (target) target.scrollIntoView({ behavior: 'smooth' });
+                            } else if (url && url !== '#') {
+                              window.open(url, '_blank');
+                            }
+                          }}
+                          className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-200 font-semibold text-sm transition-all cursor-pointer"
+                        >
+                          <span>{block.settings.secondaryButtonText}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+
+              if (heroImgUrl) {
+                return (
+                  <div key={block.id || bIdx} className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center pt-6">
+                    <div className={`space-y-5 text-left ${isLeftImg ? 'lg:col-span-7 lg:order-2' : 'lg:col-span-7'}`}>
+                      {block.settings?.badgeText && (
+                        <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-semibold bg-primary-500/10 text-primary-400 border border-primary-500/20 shadow-sm">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>{block.settings.badgeText}</span>
+                        </div>
+                      )}
+                      <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
+                        {block.title}
+                      </h1>
+                      {block.subtitle && (
+                        <p className="text-sm sm:text-base text-slate-400 leading-relaxed max-w-2xl">
+                          {block.subtitle}
+                        </p>
+                      )}
+                      <div className="flex flex-wrap items-center gap-3 pt-2">
+                        {block.settings?.buttonText && (
+                          <button
+                            onClick={() => {
+                              const url = block.settings.buttonUrl;
+                              if (url && url.startsWith('#')) {
+                                const target = document.querySelector(url) || document.getElementById('funnel-embedded-form');
+                                if (target) target.scrollIntoView({ behavior: 'smooth' });
+                              } else if (url && url !== '#') {
+                                window.open(url, '_blank');
+                              } else {
+                                const formEl = document.getElementById('funnel-embedded-form');
+                                if (formEl) formEl.scrollIntoView({ behavior: 'smooth' });
+                              }
+                            }}
+                            className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary-600 hover:bg-primary-500 text-white font-semibold text-sm shadow-xl shadow-primary-500/25 transition-all cursor-pointer"
+                          >
+                            <span>{block.settings.buttonText}</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </button>
+                        )}
+                        {block.settings?.secondaryButtonText && (
+                          <button
+                            onClick={() => {
+                              const url = block.settings.secondaryButtonUrl;
+                              if (url && url.startsWith('#')) {
+                                const target = document.querySelector(url);
+                                if (target) target.scrollIntoView({ behavior: 'smooth' });
+                              } else if (url && url !== '#') {
+                                window.open(url, '_blank');
+                              }
+                            }}
+                            className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-200 font-semibold text-sm transition-all cursor-pointer"
+                          >
+                            <span>{block.settings.secondaryButtonText}</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className={`lg:col-span-5 ${isLeftImg ? 'lg:order-1' : ''}`}>
+                      <div className={`w-full ${heroAspect} ${heroRadius} overflow-hidden shadow-2xl border border-slate-800`}>
+                        <img
+                          src={heroImgUrl}
+                          alt={block.settings?.imageAlt || block.title}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <div key={block.id || bIdx} className="text-center space-y-5 pt-6">
                   {block.settings?.badgeText && (
@@ -244,9 +394,14 @@ export default function PublicFunnelPage() {
                     {(block.settings?.columns || []).map((col: any, cIdx: number) => (
                       <div
                         key={cIdx}
-                        className="p-6 rounded-3xl bg-slate-900/70 border border-slate-800 flex flex-col justify-between space-y-4 hover:border-slate-700 transition-colors"
+                        className="p-6 rounded-3xl bg-slate-900/70 border border-slate-800 flex flex-col justify-between space-y-4 hover:border-slate-700 transition-colors overflow-hidden"
                       >
-                        <div className="space-y-2">
+                        <div className="space-y-3">
+                          {col.imageUrl && (
+                            <div className="w-full aspect-video rounded-xl overflow-hidden border border-slate-800">
+                              <img src={col.imageUrl} alt={col.title || 'Column image'} className="w-full h-full object-cover" />
+                            </div>
+                          )}
                           {col.badgeText && (
                             <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-primary-500/10 text-primary-400 border border-primary-500/20 uppercase tracking-wider">
                               {col.badgeText}
@@ -296,11 +451,18 @@ export default function PublicFunnelPage() {
                     {(block.settings?.items || []).map((item: any, idx: number) => (
                       <div
                         key={idx}
-                        className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2 hover:border-slate-700 transition-colors"
+                        className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-3 hover:border-slate-700 transition-colors overflow-hidden"
                       >
-                        <div className="w-8 h-8 rounded-xl bg-primary-500/10 border border-primary-500/20 flex items-center justify-center text-primary-400">
-                          <Check className="w-4 h-4" />
-                        </div>
+                        {item.imageUrl && (
+                          <div className="w-full aspect-video rounded-xl overflow-hidden border border-slate-800">
+                            <img src={item.imageUrl} alt={item.title || 'Feature'} className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                        {!item.imageUrl && (
+                          <div className="w-8 h-8 rounded-xl bg-primary-500/10 border border-primary-500/20 flex items-center justify-center text-primary-400">
+                            <Check className="w-4 h-4" />
+                          </div>
+                        )}
                         <div className="font-bold text-white text-sm">{item.title}</div>
                         <p className="text-xs text-slate-400 leading-relaxed">{item.description}</p>
                       </div>
@@ -607,9 +769,22 @@ export default function PublicFunnelPage() {
                           ))}
                         </div>
                         <p className="text-xs text-slate-300 italic">"{t.quote}"</p>
-                        <div>
-                          <div className="font-bold text-xs text-white">{t.name}</div>
-                          <div className="text-[11px] text-slate-500">{t.role}</div>
+                        <div className="flex items-center gap-3 pt-1">
+                          {t.avatarUrl ? (
+                            <img
+                              src={t.avatarUrl}
+                              alt={t.name}
+                              className="w-9 h-9 rounded-full object-cover border border-slate-700 flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-9 h-9 rounded-full bg-primary-600/20 text-primary-400 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                              {t.name?.[0] || 'U'}
+                            </div>
+                          )}
+                          <div>
+                            <div className="font-bold text-xs text-white">{t.name}</div>
+                            <div className="text-[11px] text-slate-500">{t.role}</div>
+                          </div>
                         </div>
                       </div>
                     ))}

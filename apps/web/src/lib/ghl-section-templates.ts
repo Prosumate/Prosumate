@@ -2,6 +2,8 @@ export interface GhlColumnItem {
   title?: string;
   description?: string;
   badgeText?: string;
+  imageUrl?: string;
+  imageAlt?: string;
   buttonText?: string;
   buttonUrl?: string;
   buttonVariant?: 'solid' | 'outline' | 'glow';
@@ -40,11 +42,18 @@ export interface GhlSectionBlock {
     secondaryButtonText?: string;
     secondaryButtonUrl?: string;
     formId?: string;
+    imageUrl?: string;
+    imageAlt?: string;
+    imagePosition?: 'right' | 'left' | 'background';
+    aspectRatio?: '16:9' | '4:3' | '1:1' | '3:4';
+    borderRadius?: 'rounded-xl' | 'rounded-2xl' | 'rounded-3xl' | 'rounded-full';
     items?: Array<{
       title?: string;
       description?: string;
       name?: string;
       role?: string;
+      avatarUrl?: string;
+      imageUrl?: string;
       quote?: string;
       rating?: number;
       [key: string]: unknown;
@@ -82,6 +91,96 @@ export const GHL_SECTION_CATEGORIES = [
 ] as const;
 
 export const GHL_SECTION_TEMPLATES: GhlSectionTemplate[] = [
+  // ==========================================
+  // Image-Rich Section Templates (Rocket.new style)
+  // ==========================================
+  {
+    id: 'ghl-hero-split-image',
+    category: 'hero',
+    categoryLabel: 'Hero Sections',
+    name: 'Hero with High-Resolution Image (Split 50/50)',
+    description: 'Two-column conversion hero with compelling copy on the Left and a high-impact photo or device mockup on the Right.',
+    iconName: 'Layout',
+    block: {
+      type: 'hero',
+      title: 'Accelerate Your Operations With World-Class Expertise',
+      subtitle: 'Partner with industry leaders dedicated to scaling your client acquisition, automating workflows, and driving measurable ROI.',
+      settings: {
+        badgeText: 'Top-Rated Industry Solution',
+        buttonText: 'Schedule Discovery Call',
+        buttonUrl: '#lead-form',
+        secondaryButtonText: 'Explore Capabilities',
+        secondaryButtonUrl: '#services',
+        imageUrl: 'https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&w=1200&q=80',
+        imagePosition: 'right',
+        aspectRatio: '16:9',
+        borderRadius: 'rounded-2xl',
+        background: 'dark',
+        padding: 'spacious',
+      },
+    },
+  },
+  {
+    id: 'ghl-hero-full-bg',
+    category: 'hero',
+    categoryLabel: 'Hero Sections',
+    name: 'Hero Full-Bleed Image Background',
+    description: 'Atmospheric full-width background photo with dark glassmorphic overlay, centered headline, and dual CTA buttons.',
+    iconName: 'Layout',
+    block: {
+      type: 'hero',
+      title: 'The Modern Standard in High-Performance Systems',
+      subtitle: 'Engineered for seamless client retention, instant booking conversion, and multi-channel pipeline growth.',
+      settings: {
+        badgeText: 'Proven Enterprise Architecture',
+        buttonText: 'Claim Your Strategy Session',
+        buttonUrl: '#lead-form',
+        secondaryButtonText: 'View Case Studies',
+        secondaryButtonUrl: '#',
+        imageUrl: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80',
+        imagePosition: 'background',
+        aspectRatio: '16:9',
+        borderRadius: 'rounded-3xl',
+        background: 'dark',
+        padding: 'spacious',
+      },
+    },
+  },
+  {
+    id: 'ghl-features-photos',
+    category: 'features',
+    categoryLabel: 'Features & Services',
+    name: '3-Column Cards with Photo Headers',
+    description: 'Three equal feature cards with crisp high-resolution photo banners atop each service card.',
+    iconName: 'Sparkles',
+    block: {
+      type: 'features',
+      title: 'Our Core Service Specializations',
+      subtitle: 'Explore our dedicated service pillars built to deliver exceptional quality and velocity.',
+      settings: {
+        background: 'dark',
+        padding: 'spacious',
+        items: [
+          {
+            title: '1. Strategic Architecture',
+            description: 'Custom diagnostic review mapping out bottlenecks, revenue leaks, and conversion opportunities.',
+            imageUrl: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=600&q=80',
+          },
+          {
+            title: '2. Precision Implementation',
+            description: 'Turnkey execution of landing pages, CRM pipelines, calendar booking, and automated nurture sequences.',
+            imageUrl: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=600&q=80',
+          },
+          {
+            title: '3. Continuous Growth & Optimization',
+            description: 'Ongoing performance analytics, A/B conversion testing, and dedicated account management.',
+            imageUrl: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=600&q=80',
+          },
+        ],
+      },
+    },
+  },
+
   // ==========================================
   // 1. Containers & Layouts
   // ==========================================
