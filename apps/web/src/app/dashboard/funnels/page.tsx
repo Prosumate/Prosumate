@@ -35,6 +35,11 @@ import {
   Sliders,
   ChevronDown,
   ChevronUp,
+  Monitor,
+  Smartphone,
+  Save,
+  MousePointerClick,
+  ChevronLeft,
 } from 'lucide-react';
 import {
   WEBSITE_TEMPLATES,
@@ -81,6 +86,18 @@ export default function FunnelsPage() {
   const [viewMode, setViewMode] = useState<'directory' | 'builder'>('directory');
   const [activeFunnel, setActiveFunnel] = useState<any | null>(null);
   const [activeStepIndex, setActiveStepIndex] = useState(0);
+
+  // WYSIWYG Visual Studio States
+  const [viewportMode, setViewportMode] = useState<'desktop' | 'mobile'>('desktop');
+  const [selectedTarget, setSelectedTarget] = useState<{
+    blockIndex: number;
+    elementPath?: string;
+    type?: string;
+  } | null>(null);
+  const [showSectionDrawer, setShowSectionDrawer] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [expandedFaqs, setExpandedFaqs] = useState<Record<string, boolean>>({});
 
   // Directory Tabs & Template Browsing
   const [directoryTab, setDirectoryTab] = useState<'my_funnels' | 'templates'>('my_funnels');
@@ -182,6 +199,10 @@ export default function FunnelsPage() {
   const openBuilder = (f: any) => {
     setActiveFunnel(f);
     setActiveStepIndex(0);
+    setSelectedTarget(null);
+    setHasUnsavedChanges(false);
+    setViewportMode('desktop');
+    setShowSectionDrawer(false);
     setViewMode('builder');
   };
 
@@ -668,6 +689,46 @@ export default function FunnelsPage() {
     }
   };
 
+  const updateActiveBlock = (blockIndex: number, updater: (block: any) => any) => {
+    if (!activeFunnel) return;
+    const currentStep = activeFunnel.steps[activeStepIndex];
+    if (!currentStep?.blocks) return;
+
+    const updatedBlocks = currentStep.blocks.map((b: any, idx: number) => {
+      if (idx !== blockIndex) return b;
+      return updater(JSON.parse(JSON.stringify(b)));
+    });
+
+    const updatedSteps = activeFunnel.steps.map((s: any, idx: number) =>
+      idx === activeStepIndex ? { ...s, blocks: updatedBlocks } : s
+    );
+
+    setActiveFunnel({ ...activeFunnel, steps: updatedSteps });
+    setHasUnsavedChanges(true);
+  };
+
+  const handleSaveFunnel = async () => {
+    if (!locationId || !activeFunnel) return;
+    setIsSaving(true);
+    try {
+      const res = await api.updateFunnel(locationId, activeFunnel.id, {
+        steps: activeFunnel.steps,
+      });
+      if (res.success && res.data) {
+        setActiveFunnel(res.data);
+        setHasUnsavedChanges(false);
+        setSuccessMessage('All changes saved to live page!');
+        setTimeout(() => setSuccessMessage(null), 3000);
+      } else {
+        setErrorMessage(res.error?.message || 'Failed to save page');
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Error saving page');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const totalViews = funnels.reduce((acc, f) => acc + (f.totalViews || 0), 0);
   const totalConversions = funnels.reduce((acc, f) => acc + (f.totalConversions || 0), 0);
   const conversionRate = totalViews > 0 ? ((totalConversions / totalViews) * 100).toFixed(1) : '0.0';
@@ -675,6 +736,1610 @@ export default function FunnelsPage() {
   const filteredTemplates = selectedCategory === 'all'
     ? WEBSITE_TEMPLATES
     : WEBSITE_TEMPLATES.filter((t) => t.category === selectedCategory);
+
+  // WYSIWYG Full Visual Studio Mode
+  if (viewMode === 'builder' && activeFunnel) {
+    const currentStep = activeFunnel.steps?.[activeStepIndex] || activeFunnel.steps?.[0];
+    const currentBlocks = currentStep?.blocks || [];
+    const selectedBlock =
+      selectedTarget !== null && selectedTarget.blockIndex < currentBlocks.length
+        ? currentBlocks[selectedTarget.blockIndex]
+        : null;
+
+    return (
+      <div className="h-[calc(100vh-4rem)] -m-8 flex flex-col bg-slate-950 text-slate-100 overflow-hidden select-none relative">
+        {/* Notifications Toast */}
+        {successMessage && (
+          <div className="absolute top-16 right-6 z-50 p-3.5 rounded-xl bg-emerald-600 text-white text-xs font-semibold flex items-center gap-2 shadow-2xl border border-emerald-400/30 animate-in fade-in slide-in-from-top-2">
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+            <span>{successMessage}</span>
+          </div>
+        )}
+        {errorMessage && (
+          <div className="absolute top-16 right-6 z-50 p-3.5 rounded-xl bg-rose-600 text-white text-xs font-semibold flex items-center gap-2 shadow-2xl border border-rose-400/30 animate-in fade-in slide-in-from-top-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
+
+        {/* Top Studio Header Toolbar */}
+        <header className="h-14 border-b border-slate-800 bg-slate-900/95 backdrop-blur px-4 flex items-center justify-between gap-3 flex-shrink-0 z-30">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={() => {
+                setSelectedTarget(null);
+                setViewMode('directory');
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors cursor-pointer"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>Funnels</span>
+            </button>
+
+            <div className="h-4 w-px bg-slate-800" />
+
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-bold text-sm text-white truncate max-w-[160px] sm:max-w-xs">
+                {activeFunnel.name}
+              </span>
+              <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                /f/{activeFunnel.slug}
+              </span>
+            </div>
+
+            {/* Step Switcher Tabs */}
+            <div className="hidden lg:flex items-center gap-1 bg-slate-950/70 p-1 rounded-xl border border-slate-800">
+              {activeFunnel.steps.map((step: any, sIdx: number) => (
+                <button
+                  key={sIdx}
+                  onClick={() => {
+                    setActiveStepIndex(sIdx);
+                    setSelectedTarget(null);
+                  }}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                    activeStepIndex === sIdx
+                      ? 'bg-primary-600 text-white font-semibold shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  }`}
+                >
+                  <span className="text-[10px] opacity-70">Step {sIdx + 1}:</span>
+                  <span className="truncate max-w-[100px]">{step.name}</span>
+                </button>
+              ))}
+              <button
+                onClick={() => setShowAddStepModal(true)}
+                className="p-1 rounded-lg text-slate-400 hover:text-primary-400 hover:bg-slate-800/60 transition-colors cursor-pointer"
+                title="Add Funnel Step"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Center Viewport Switcher */}
+          <div className="flex items-center gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
+            <button
+              onClick={() => setViewportMode('desktop')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                viewportMode === 'desktop'
+                  ? 'bg-slate-800 text-white shadow-sm border border-slate-700'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Desktop 100% Canvas"
+            >
+              <Monitor className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline text-[11px]">Desktop</span>
+            </button>
+            <button
+              onClick={() => setViewportMode('mobile')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                viewportMode === 'mobile'
+                  ? 'bg-slate-800 text-white shadow-sm border border-slate-700'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Mobile (390px View)"
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline text-[11px]">Mobile</span>
+            </button>
+          </div>
+
+          {/* Right Action Controls */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowSectionDrawer((prev) => !prev)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                showSectionDrawer
+                  ? 'bg-primary-600 text-white shadow-sm'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span className="hidden sm:inline">+ Add Section</span>
+            </button>
+
+            <a
+              href={`/f/${activeFunnel.slug}`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors cursor-pointer"
+              title="Open Live Website in New Tab"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Preview</span>
+            </a>
+
+            <button
+              onClick={handleSaveFunnel}
+              disabled={isSaving}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                hasUnsavedChanges
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400/50'
+                  : 'bg-primary-600 hover:bg-primary-500 text-white'
+              } disabled:opacity-50`}
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>{isSaving ? 'Saving...' : hasUnsavedChanges ? 'Save Changes' : 'Saved'}</span>
+            </button>
+          </div>
+        </header>
+
+        {/* Main Work Area */}
+        <div className="flex-1 flex overflow-hidden relative">
+          {/* Collapsible Left Section Drawer */}
+          {showSectionDrawer && (
+            <aside className="w-80 border-r border-slate-800 bg-slate-900/98 backdrop-blur flex flex-col z-20 overflow-hidden shadow-2xl flex-shrink-0 animate-in slide-in-from-left duration-200">
+              <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                    <Layout className="w-4 h-4 text-primary-400" />
+                    Section Library
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Click to append to your page
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowSectionDrawer(false)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Category pills */}
+              <div className="p-2 border-b border-slate-800 flex gap-1 overflow-x-auto scrollbar-none bg-slate-950/40">
+                {GHL_SECTION_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedSectionCategory(cat.id)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-colors cursor-pointer ${
+                      selectedSectionCategory === cat.id
+                        ? 'bg-primary-600 text-white font-semibold'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Template list */}
+              <div className="p-3 overflow-y-auto space-y-3 flex-1">
+                {GHL_SECTION_TEMPLATES
+                  .filter((t) => selectedSectionCategory === 'all' || t.category === selectedSectionCategory)
+                  .map((t) => (
+                    <div
+                      key={t.id}
+                      className="p-3 rounded-xl bg-slate-800/70 border border-slate-700/80 hover:border-primary-500/80 transition-all group flex flex-col justify-between space-y-2"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-primary-500/10 text-primary-400 border border-primary-500/20">
+                            {t.categoryLabel}
+                          </span>
+                          <span className="text-[9px] font-mono text-slate-400 uppercase">
+                            {t.block.type.replace('_', ' ')}
+                          </span>
+                        </div>
+                        <h4 className="font-bold text-xs text-white mt-1 group-hover:text-primary-400 transition-colors">
+                          {t.name}
+                        </h4>
+                        <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-2">
+                          {t.description}
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => handleInsertSectionTemplate(t)}
+                        className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-slate-700 hover:bg-primary-600 text-white text-xs font-medium transition-colors cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Insert Section</span>
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            </aside>
+          )}
+
+          {/* Center Canvas Area */}
+          <main
+            onClick={() => setSelectedTarget(null)}
+            className="flex-1 overflow-y-auto bg-slate-950 p-6 flex flex-col items-center custom-scrollbar"
+          >
+            {/* Guide strip */}
+            <div className="w-full max-w-4xl mb-4 py-1.5 px-3 rounded-xl bg-slate-900/60 border border-slate-800 text-[11px] text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <MousePointerClick className="w-3.5 h-3.5 text-primary-400 flex-shrink-0" />
+                <span>
+                  <strong>Point & Click to Edit:</strong> Click any headline, badge, button, pricing card, or FAQ to edit its copy & style in real-time.
+                </span>
+              </div>
+              <div className="flex items-center gap-3 text-[10px] flex-shrink-0">
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> Section
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> Container
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" /> Element
+                </span>
+              </div>
+            </div>
+
+            {/* Viewport Frame */}
+            <div
+              className={`transition-all duration-300 ${
+                viewportMode === 'desktop'
+                  ? 'w-full max-w-4xl'
+                  : 'w-[390px] min-h-[780px] bg-slate-900/90 rounded-[44px] border-[10px] border-slate-800 shadow-2xl p-4 my-4 ring-1 ring-white/10 relative'
+              }`}
+            >
+              {/* Mobile Phone Top Notch */}
+              {viewportMode === 'mobile' && (
+                <div className="w-32 h-4 bg-slate-800 rounded-b-xl mx-auto mb-4 flex items-center justify-center">
+                  <div className="w-2.5 h-2.5 rounded-full bg-slate-900 mr-2" />
+                  <div className="w-8 h-1 bg-slate-700 rounded-full" />
+                </div>
+              )}
+
+              {/* Sections List */}
+              {currentBlocks.length === 0 ? (
+                <div className="p-12 text-center rounded-3xl border-2 border-dashed border-slate-800 bg-slate-900/40 my-8">
+                  <div className="w-12 h-12 rounded-2xl bg-primary-600/20 border border-primary-500/30 flex items-center justify-center text-primary-400 mx-auto mb-3">
+                    <Sparkles className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-base font-bold text-white">This Step Has No Sections Yet</h3>
+                  <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1 mb-4">
+                    Choose from 20+ pre-built GHL sections or modular layout containers to start designing.
+                  </p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowSectionDrawer(true);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold cursor-pointer shadow-md shadow-primary-500/20 inline-flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Browse Section Library
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {currentBlocks.map((block: any, bIdx: number) => {
+                    const isSectionSelected =
+                      selectedTarget?.blockIndex === bIdx &&
+                      (!selectedTarget.elementPath || selectedTarget.type === 'section');
+                    const settings = block.settings || {};
+
+                    return (
+                      <React.Fragment key={bIdx}>
+                        {/* Section Container Wrapper */}
+                        <section
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedTarget({ blockIndex: bIdx, type: 'section' });
+                          }}
+                          className={`relative group rounded-2xl transition-all cursor-pointer border ${
+                            isSectionSelected
+                              ? 'ring-2 ring-emerald-500 border-emerald-500/80 bg-slate-900/90 shadow-lg shadow-emerald-500/10'
+                              : 'border-slate-800/90 hover:border-emerald-500/50 bg-slate-900/70'
+                          } ${
+                            settings.backgroundStyle === 'charcoal'
+                              ? 'bg-zinc-900'
+                              : settings.backgroundStyle === 'midnight'
+                              ? 'bg-indigo-950/40'
+                              : settings.backgroundStyle === 'gradient'
+                              ? 'bg-gradient-to-b from-slate-900 via-slate-850 to-slate-900'
+                              : 'bg-slate-900/80'
+                          } ${
+                            settings.paddingStyle === 'compact'
+                              ? 'p-6'
+                              : settings.paddingStyle === 'spacious'
+                              ? 'p-12'
+                              : 'p-8'
+                          }`}
+                        >
+                          {/* Section Floating Badge & Toolbar */}
+                          <div className="absolute top-2 left-3 flex items-center gap-2 z-10">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                                isSectionSelected
+                                  ? 'bg-emerald-500 text-slate-950'
+                                  : 'bg-slate-800 text-emerald-400 group-hover:bg-emerald-500/20'
+                              }`}
+                            >
+                              Section: {block.type.replace('_', ' ')}
+                            </span>
+                          </div>
+
+                          {/* Top Right Quick Actions */}
+                          <div className="absolute top-2 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-slate-950/80 p-1 rounded-lg border border-slate-700 z-10">
+                            <button
+                              title="Move Up"
+                              disabled={bIdx === 0}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMoveBlock(bIdx, 'up');
+                              }}
+                              className="p-1 text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer"
+                            >
+                              <ChevronUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              title="Move Down"
+                              disabled={bIdx === currentBlocks.length - 1}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMoveBlock(bIdx, 'down');
+                              }}
+                              className="p-1 text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer"
+                            >
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              title="Duplicate Section"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDuplicateBlock(bIdx);
+                              }}
+                              className="p-1 text-slate-400 hover:text-white cursor-pointer"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              title="Delete Section"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteBlock(bIdx);
+                              }}
+                              className="p-1 text-slate-400 hover:text-rose-400 cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          {/* Section Content Rendering */}
+                          <div className="pt-4 space-y-6">
+                            {/* 1. Optional Badge */}
+                            {settings.badgeText && (
+                              <div className="flex">
+                                <span
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedTarget({
+                                      blockIndex: bIdx,
+                                      elementPath: 'badge',
+                                      type: 'badge',
+                                    });
+                                  }}
+                                  className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider transition-all inline-flex items-center gap-1.5 cursor-pointer ${
+                                    selectedTarget?.blockIndex === bIdx &&
+                                    selectedTarget.elementPath === 'badge'
+                                      ? 'ring-2 ring-amber-400 bg-amber-400/20 text-amber-300'
+                                      : 'bg-primary-500/10 text-primary-400 border border-primary-500/20 hover:border-amber-400'
+                                  }`}
+                                >
+                                  <Sparkles className="w-3 h-3 text-amber-400" />
+                                  {settings.badgeText}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* 2. Headline / Title */}
+                            {block.title && (
+                              <h2
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedTarget({
+                                    blockIndex: bIdx,
+                                    elementPath: 'title',
+                                    type: 'title',
+                                  });
+                                }}
+                                className={`font-black tracking-tight text-white transition-all cursor-pointer rounded-lg p-1 -m-1 ${
+                                  block.type === 'hero' ? 'text-2xl sm:text-4xl' : 'text-xl sm:text-2xl'
+                                } ${
+                                  selectedTarget?.blockIndex === bIdx &&
+                                  selectedTarget.elementPath === 'title'
+                                    ? 'ring-2 ring-amber-400 bg-amber-400/10'
+                                    : 'hover:ring-1 hover:ring-amber-400/60'
+                                }`}
+                              >
+                                {block.title}
+                              </h2>
+                            )}
+
+                            {/* 3. Subtitle / Description */}
+                            {block.subtitle && (
+                              <p
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedTarget({
+                                    blockIndex: bIdx,
+                                    elementPath: 'subtitle',
+                                    type: 'subtitle',
+                                  });
+                                }}
+                                className={`text-slate-300 text-sm sm:text-base leading-relaxed max-w-3xl transition-all cursor-pointer rounded-lg p-1 -m-1 ${
+                                  selectedTarget?.blockIndex === bIdx &&
+                                  selectedTarget.elementPath === 'subtitle'
+                                    ? 'ring-2 ring-amber-400 bg-amber-400/10'
+                                    : 'hover:ring-1 hover:ring-amber-400/60'
+                                }`}
+                              >
+                                {block.subtitle}
+                              </p>
+                            )}
+
+                            {/* 4. Action Button (Hero / CTA) */}
+                            {settings.buttonText && (
+                              <div className="pt-2">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedTarget({
+                                      blockIndex: bIdx,
+                                      elementPath: 'button',
+                                      type: 'button',
+                                    });
+                                  }}
+                                  className={`px-6 py-3 rounded-xl font-bold text-sm text-white shadow-lg transition-all cursor-pointer inline-flex items-center gap-2 ${
+                                    selectedTarget?.blockIndex === bIdx &&
+                                    selectedTarget.elementPath === 'button'
+                                      ? 'ring-4 ring-amber-400 bg-primary-600'
+                                      : 'bg-primary-600 hover:bg-primary-500 shadow-primary-500/25 hover:ring-2 hover:ring-amber-400/70'
+                                  }`}
+                                >
+                                  <span>{settings.buttonText}</span>
+                                  <ArrowRight className="w-4 h-4" />
+                                </button>
+                              </div>
+                            )}
+
+                            {/* 5. Multi-Column Container Layout */}
+                            {(block.type === 'container' || block.type === 'columns') && (
+                              <div
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedTarget({
+                                    blockIndex: bIdx,
+                                    elementPath: 'container',
+                                    type: 'container',
+                                  });
+                                }}
+                                className={`p-4 rounded-xl border transition-all ${
+                                  selectedTarget?.blockIndex === bIdx &&
+                                  selectedTarget.elementPath === 'container'
+                                    ? 'ring-2 ring-blue-500 border-blue-500/80 bg-blue-500/5'
+                                    : 'border-slate-800/80 hover:border-blue-500/50'
+                                }`}
+                              >
+                                <div className="text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-3">
+                                  Grid Container: {settings.columnsCount || 2} Columns
+                                </div>
+                                <div
+                                  className={`grid gap-4 ${
+                                    (settings.columnsCount || 2) === 1
+                                      ? 'grid-cols-1'
+                                      : (settings.columnsCount || 2) === 2
+                                      ? 'grid-cols-1 md:grid-cols-2'
+                                      : (settings.columnsCount || 2) === 3
+                                      ? 'grid-cols-1 md:grid-cols-3'
+                                      : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4'
+                                  }`}
+                                >
+                                  {Array.from({ length: settings.columnsCount || 2 }).map((_, cIdx) => {
+                                    const colData = settings.columns?.[cIdx] || {
+                                      title: `Column ${cIdx + 1}`,
+                                      description: 'Fully customizable content column block.',
+                                    };
+                                    const isColSelected =
+                                      selectedTarget?.blockIndex === bIdx &&
+                                      selectedTarget.elementPath === `column-${cIdx}`;
+                                    return (
+                                      <div
+                                        key={cIdx}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedTarget({
+                                            blockIndex: bIdx,
+                                            elementPath: `column-${cIdx}`,
+                                            type: 'column',
+                                          });
+                                        }}
+                                        className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                                          isColSelected
+                                            ? 'ring-2 ring-blue-400 border-blue-400 bg-blue-500/10'
+                                            : 'border-slate-800 bg-slate-900/60 hover:border-blue-400/60'
+                                        }`}
+                                      >
+                                        <div className="text-[9px] font-bold text-slate-500 uppercase">
+                                          Col #{cIdx + 1}
+                                        </div>
+                                        <h4 className="font-bold text-white text-sm mt-1">{colData.title}</h4>
+                                        <p className="text-xs text-slate-400 mt-1">{colData.description}</p>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 6. Feature Items Grid */}
+                            {settings.items && settings.items.length > 0 && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-2">
+                                {settings.items.map((item: any, iIdx: number) => {
+                                  const isItemSelected =
+                                    selectedTarget?.blockIndex === bIdx &&
+                                    selectedTarget.elementPath === `item-${iIdx}`;
+                                  return (
+                                    <div
+                                      key={iIdx}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedTarget({
+                                          blockIndex: bIdx,
+                                          elementPath: `item-${iIdx}`,
+                                          type: 'item',
+                                        });
+                                      }}
+                                      className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                                        isItemSelected
+                                          ? 'ring-2 ring-amber-400 border-amber-400 bg-amber-400/10'
+                                          : 'border-slate-800 bg-slate-900/60 hover:border-amber-400/60'
+                                      }`}
+                                    >
+                                      <div className="w-8 h-8 rounded-lg bg-primary-600/20 text-primary-400 flex items-center justify-center font-bold text-xs mb-2">
+                                        {iIdx + 1}
+                                      </div>
+                                      <h4 className="font-bold text-white text-sm">{item.title}</h4>
+                                      <p className="text-xs text-slate-400 mt-1">{item.description}</p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* 7. Pricing Table Cards */}
+                            {settings.pricingTiers && settings.pricingTiers.length > 0 && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                                {settings.pricingTiers.map((tier: any, pIdx: number) => {
+                                  const isTierSelected =
+                                    selectedTarget?.blockIndex === bIdx &&
+                                    selectedTarget.elementPath === `pricing-${pIdx}`;
+                                  return (
+                                    <div
+                                      key={pIdx}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedTarget({
+                                          blockIndex: bIdx,
+                                          elementPath: `pricing-${pIdx}`,
+                                          type: 'pricing',
+                                        });
+                                      }}
+                                      className={`p-6 rounded-2xl border transition-all cursor-pointer relative flex flex-col justify-between ${
+                                        tier.popular
+                                          ? 'border-primary-500/80 bg-primary-950/20'
+                                          : 'border-slate-800 bg-slate-900/60'
+                                      } ${
+                                        isTierSelected
+                                          ? 'ring-2 ring-amber-400'
+                                          : 'hover:border-amber-400/60'
+                                      }`}
+                                    >
+                                      {tier.popular && (
+                                        <span className="absolute -top-3 right-4 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-primary-600 text-white shadow-sm">
+                                          Most Popular
+                                        </span>
+                                      )}
+                                      <div>
+                                        <div className="font-bold text-white text-base">{tier.name}</div>
+                                        <div className="flex items-baseline gap-1 mt-2">
+                                          <span className="text-3xl font-extrabold text-white">
+                                            {tier.price}
+                                          </span>
+                                          <span className="text-xs text-slate-400">{tier.period}</span>
+                                        </div>
+                                        <ul className="mt-4 space-y-2 text-xs text-slate-300">
+                                          {(tier.features || []).map((feat: string, fIdx: number) => (
+                                            <li key={fIdx} className="flex items-center gap-2">
+                                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                                              <span>{feat}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        className="w-full mt-6 py-2.5 rounded-xl font-bold text-xs bg-primary-600 text-white hover:bg-primary-500 transition-colors"
+                                      >
+                                        {tier.buttonText || 'Choose Plan'}
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* 8. FAQ Accordion */}
+                            {settings.faqItems && settings.faqItems.length > 0 && (
+                              <div className="space-y-3 pt-2">
+                                {settings.faqItems.map((faq: any, fIdx: number) => {
+                                  const isFaqSelected =
+                                    selectedTarget?.blockIndex === bIdx &&
+                                    selectedTarget.elementPath === `faq-${fIdx}`;
+                                  const isExpanded =
+                                    expandedFaqs[`${bIdx}-${fIdx}`] ?? fIdx === 0;
+                                  return (
+                                    <div
+                                      key={fIdx}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedTarget({
+                                          blockIndex: bIdx,
+                                          elementPath: `faq-${fIdx}`,
+                                          type: 'faq',
+                                        });
+                                      }}
+                                      className={`rounded-xl border transition-all cursor-pointer overflow-hidden ${
+                                        isFaqSelected
+                                          ? 'ring-2 ring-amber-400 border-amber-400 bg-slate-900'
+                                          : 'border-slate-800 bg-slate-900/60 hover:border-amber-400/60'
+                                      }`}
+                                    >
+                                      <div
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setExpandedFaqs((prev) => ({
+                                            ...prev,
+                                            [`${bIdx}-${fIdx}`]: !isExpanded,
+                                          }));
+                                        }}
+                                        className="p-4 flex items-center justify-between font-bold text-xs text-white"
+                                      >
+                                        <span>{faq.question}</span>
+                                        {isExpanded ? (
+                                          <ChevronUp className="w-4 h-4 text-slate-400" />
+                                        ) : (
+                                          <ChevronDown className="w-4 h-4 text-slate-400" />
+                                        )}
+                                      </div>
+                                      {isExpanded && (
+                                        <div className="px-4 pb-4 text-xs text-slate-300 leading-relaxed border-t border-slate-800/60 pt-2">
+                                          {faq.answer}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* 9. Form Embed Block */}
+                            {block.type === 'form_embed' && (
+                              <div
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedTarget({
+                                    blockIndex: bIdx,
+                                    elementPath: 'form',
+                                    type: 'form',
+                                  });
+                                }}
+                                className={`p-6 rounded-2xl border transition-all cursor-pointer bg-slate-950/70 ${
+                                  selectedTarget?.blockIndex === bIdx &&
+                                  selectedTarget.elementPath === 'form'
+                                    ? 'ring-2 ring-amber-400 border-amber-400'
+                                    : 'border-slate-800 hover:border-amber-400/60'
+                                }`}
+                              >
+                                <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                  <CheckSquare className="w-3 h-3" />
+                                  Lead Capture Form Embed
+                                </div>
+                                <div className="space-y-3 pointer-events-none opacity-80">
+                                  <div>
+                                    <label className="block text-[11px] text-slate-400 mb-1">
+                                      Full Name
+                                    </label>
+                                    <div className="h-9 rounded-lg bg-slate-900 border border-slate-800 px-3 flex items-center text-xs text-slate-500">
+                                      Jane Doe
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] text-slate-400 mb-1">
+                                      Email Address
+                                    </label>
+                                    <div className="h-9 rounded-lg bg-slate-900 border border-slate-800 px-3 flex items-center text-xs text-slate-500">
+                                      jane@example.com
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] text-slate-400 mb-1">
+                                      Phone Number
+                                    </label>
+                                    <div className="h-9 rounded-lg bg-slate-900 border border-slate-800 px-3 flex items-center text-xs text-slate-500">
+                                      +1 (555) 000-0000
+                                    </div>
+                                  </div>
+                                  <button className="w-full py-2.5 rounded-xl bg-primary-600 text-white font-bold text-xs mt-2">
+                                    Submit Application
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </section>
+
+                        {/* In-Between Section Inserter */}
+                        <div className="group/divider py-2 flex items-center justify-center relative">
+                          <div className="h-px bg-slate-800/80 w-full group-hover/divider:bg-primary-500/40 transition-colors" />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenSectionTemplates(bIdx + 1);
+                            }}
+                            className="absolute opacity-0 group-hover/divider:opacity-100 transition-all px-3 py-1 rounded-full text-[11px] font-semibold bg-primary-600 hover:bg-primary-500 text-white shadow-md flex items-center gap-1 cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Insert Section Here</span>
+                          </button>
+                        </div>
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </main>
+
+          {/* Right Element Inspector Sidebar */}
+          <aside className="w-88 border-l border-slate-800 bg-slate-900/98 backdrop-blur flex flex-col z-10 overflow-hidden shadow-xl flex-shrink-0">
+            {selectedTarget === null || !selectedBlock ? (
+              <div className="p-6 text-center space-y-3 my-auto">
+                <div className="w-12 h-12 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-primary-400 mx-auto">
+                  <MousePointerClick className="w-6 h-6" />
+                </div>
+                <h3 className="font-bold text-sm text-white">Element Inspector</h3>
+                <p className="text-xs text-slate-400 leading-relaxed max-w-xs mx-auto">
+                  Click on any headline, subtitle, button, card, column, or section in the live preview to edit its properties, styling, and copy in real-time.
+                </p>
+                <div className="pt-2 flex flex-col gap-2">
+                  <button
+                    onClick={() => {
+                      if (currentBlocks.length > 0) {
+                        setSelectedTarget({ blockIndex: 0, type: 'section' });
+                      }
+                    }}
+                    disabled={currentBlocks.length === 0}
+                    className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition-colors disabled:opacity-40 cursor-pointer"
+                  >
+                    Select Top Section
+                  </button>
+                  <button
+                    onClick={() => setShowSectionDrawer(true)}
+                    className="px-3 py-2 rounded-xl bg-primary-600/20 hover:bg-primary-600/30 text-primary-400 border border-primary-500/30 text-xs font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add Section Template
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Inspector Header */}
+                <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                        selectedTarget.type === 'section'
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                          : selectedTarget.type === 'container' || selectedTarget.type === 'column'
+                          ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                          : 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
+                      }`}
+                    >
+                      {selectedTarget.type || 'Element'}
+                    </span>
+                    <span className="font-bold text-xs text-white capitalize truncate max-w-[140px]">
+                      {selectedTarget.elementPath || selectedBlock.type.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setSelectedTarget(null)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+                    title="Deselect element"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Inspector Form Controls */}
+                <div className="p-5 overflow-y-auto space-y-5 text-xs flex-1">
+                  {/* Section Level Controls */}
+                  {selectedTarget.type === 'section' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                          Section Headline
+                        </label>
+                        <input
+                          type="text"
+                          value={selectedBlock.title || ''}
+                          onChange={(e) =>
+                            updateActiveBlock(selectedTarget.blockIndex, (b) => ({
+                              ...b,
+                              title: e.target.value,
+                            }))
+                          }
+                          className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                          Subtitle / Supporting Text
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={selectedBlock.subtitle || ''}
+                          onChange={(e) =>
+                            updateActiveBlock(selectedTarget.blockIndex, (b) => ({
+                              ...b,
+                              subtitle: e.target.value,
+                            }))
+                          }
+                          className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                          Badge Pill Text
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. VIP Access, Highly Rated"
+                          value={selectedBlock.settings?.badgeText || ''}
+                          onChange={(e) =>
+                            updateActiveBlock(selectedTarget.blockIndex, (b) => ({
+                              ...b,
+                              settings: { ...(b.settings || {}), badgeText: e.target.value },
+                            }))
+                          }
+                          className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                          Section Background Theme
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { id: 'slate', label: 'Dark Slate' },
+                            { id: 'charcoal', label: 'Charcoal' },
+                            { id: 'midnight', label: 'Midnight Blue' },
+                            { id: 'gradient', label: 'Gradient Glow' },
+                          ].map((bg) => (
+                            <button
+                              key={bg.id}
+                              onClick={() =>
+                                updateActiveBlock(selectedTarget.blockIndex, (b) => ({
+                                  ...b,
+                                  settings: { ...(b.settings || {}), backgroundStyle: bg.id },
+                                }))
+                              }
+                              className={`px-3 py-2 rounded-xl text-xs font-medium border transition-all cursor-pointer ${
+                                (selectedBlock.settings?.backgroundStyle || 'slate') === bg.id
+                                  ? 'bg-primary-600/20 border-primary-500 text-white font-semibold'
+                                  : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+                              }`}
+                            >
+                              {bg.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                          Vertical Padding
+                        </label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { id: 'compact', label: 'Compact' },
+                            { id: 'normal', label: 'Normal' },
+                            { id: 'spacious', label: 'Spacious' },
+                          ].map((pad) => (
+                            <button
+                              key={pad.id}
+                              onClick={() =>
+                                updateActiveBlock(selectedTarget.blockIndex, (b) => ({
+                                  ...b,
+                                  settings: { ...(b.settings || {}), paddingStyle: pad.id },
+                                }))
+                              }
+                              className={`px-2 py-1.5 rounded-lg text-xs font-medium border transition-all cursor-pointer ${
+                                (selectedBlock.settings?.paddingStyle || 'normal') === pad.id
+                                  ? 'bg-primary-600/20 border-primary-500 text-white font-semibold'
+                                  : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+                              }`}
+                            >
+                              {pad.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-800 space-y-2">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          Section Actions
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => handleDuplicateBlock(selectedTarget.blockIndex)}
+                            className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                            Duplicate
+                          </button>
+                          <button
+                            onClick={() => {
+                              const idx = selectedTarget.blockIndex;
+                              setSelectedTarget(null);
+                              handleDeleteBlock(idx);
+                            }}
+                            className="px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Headline Title Controls */}
+                  {selectedTarget.type === 'title' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                          Headline Text
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={selectedBlock.title || ''}
+                          onChange={(e) =>
+                            updateActiveBlock(selectedTarget.blockIndex, (b) => ({
+                              ...b,
+                              title: e.target.value,
+                            }))
+                          }
+                          className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500 font-bold"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Subtitle Controls */}
+                  {selectedTarget.type === 'subtitle' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                          Subtitle Text
+                        </label>
+                        <textarea
+                          rows={4}
+                          value={selectedBlock.subtitle || ''}
+                          onChange={(e) =>
+                            updateActiveBlock(selectedTarget.blockIndex, (b) => ({
+                              ...b,
+                              subtitle: e.target.value,
+                            }))
+                          }
+                          className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Badge Controls */}
+                  {selectedTarget.type === 'badge' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                          Badge Text
+                        </label>
+                        <input
+                          type="text"
+                          value={selectedBlock.settings?.badgeText || ''}
+                          onChange={(e) =>
+                            updateActiveBlock(selectedTarget.blockIndex, (b) => ({
+                              ...b,
+                              settings: { ...(b.settings || {}), badgeText: e.target.value },
+                            }))
+                          }
+                          className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Button CTA Controls */}
+                  {selectedTarget.type === 'button' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                          Button Text
+                        </label>
+                        <input
+                          type="text"
+                          value={selectedBlock.settings?.buttonText || ''}
+                          onChange={(e) =>
+                            updateActiveBlock(selectedTarget.blockIndex, (b) => ({
+                              ...b,
+                              settings: { ...(b.settings || {}), buttonText: e.target.value },
+                            }))
+                          }
+                          className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500 font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                          Button Action / URL
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="#consultation or /contact"
+                          value={selectedBlock.settings?.buttonUrl || ''}
+                          onChange={(e) =>
+                            updateActiveBlock(selectedTarget.blockIndex, (b) => ({
+                              ...b,
+                              settings: { ...(b.settings || {}), buttonUrl: e.target.value },
+                            }))
+                          }
+                          className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500 font-mono"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Container Columns Grid Controls */}
+                  {selectedTarget.type === 'container' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                          Number of Columns
+                        </label>
+                        <div className="grid grid-cols-4 gap-2">
+                          {[1, 2, 3, 4].map((count) => (
+                            <button
+                              key={count}
+                              onClick={() =>
+                                updateActiveBlock(selectedTarget.blockIndex, (b) => {
+                                  const prevCols = b.settings?.columns || [];
+                                  const newCols = Array.from({ length: count }).map(
+                                    (_, idx) =>
+                                      prevCols[idx] || {
+                                        title: `Column ${idx + 1}`,
+                                        description: 'Customizable column',
+                                      }
+                                  );
+                                  return {
+                                    ...b,
+                                    settings: {
+                                      ...(b.settings || {}),
+                                      columnsCount: count,
+                                      columns: newCols,
+                                    },
+                                  };
+                                })
+                              }
+                              className={`py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                                (selectedBlock.settings?.columnsCount || 2) === count
+                                  ? 'bg-primary-600 text-white border-primary-500'
+                                  : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
+                              }`}
+                            >
+                              {count} Col
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Column Detail Controls */}
+                  {selectedTarget.type === 'column' &&
+                    (() => {
+                      const cIdx = parseInt(
+                        selectedTarget.elementPath?.replace('column-', '') || '0',
+                        10
+                      );
+                      const col =
+                        (selectedBlock.settings?.columns && selectedBlock.settings.columns[cIdx]) || {
+                          title: `Column ${cIdx + 1}`,
+                          description: '',
+                        };
+
+                      return (
+                        <div className="space-y-4">
+                          <div className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">
+                            Editing Column #{cIdx + 1}
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                              Column Title
+                            </label>
+                            <input
+                              type="text"
+                              value={col.title || ''}
+                              onChange={(e) =>
+                                updateActiveBlock(selectedTarget.blockIndex, (b) => {
+                                  const cols = [...(b.settings?.columns || [])];
+                                  while (cols.length <= cIdx)
+                                    cols.push({ title: '', description: '' });
+                                  cols[cIdx] = { ...cols[cIdx], title: e.target.value };
+                                  return {
+                                    ...b,
+                                    settings: { ...(b.settings || {}), columns: cols },
+                                  };
+                                })
+                              }
+                              className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                              Column Description
+                            </label>
+                            <textarea
+                              rows={3}
+                              value={col.description || ''}
+                              onChange={(e) =>
+                                updateActiveBlock(selectedTarget.blockIndex, (b) => {
+                                  const cols = [...(b.settings?.columns || [])];
+                                  while (cols.length <= cIdx)
+                                    cols.push({ title: '', description: '' });
+                                  cols[cIdx] = { ...cols[cIdx], description: e.target.value };
+                                  return {
+                                    ...b,
+                                    settings: { ...(b.settings || {}), columns: cols },
+                                  };
+                                })
+                              }
+                              className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                  {/* Feature Item Controls */}
+                  {selectedTarget.type === 'item' &&
+                    (() => {
+                      const iIdx = parseInt(
+                        selectedTarget.elementPath?.replace('item-', '') || '0',
+                        10
+                      );
+                      const item =
+                        (selectedBlock.settings?.items && selectedBlock.settings.items[iIdx]) || {
+                          title: '',
+                          description: '',
+                        };
+
+                      return (
+                        <div className="space-y-4">
+                          <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                            Editing Feature Item #{iIdx + 1}
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                              Item Title
+                            </label>
+                            <input
+                              type="text"
+                              value={item.title || ''}
+                              onChange={(e) =>
+                                updateActiveBlock(selectedTarget.blockIndex, (b) => {
+                                  const items = [...(b.settings?.items || [])];
+                                  if (items[iIdx]) items[iIdx] = { ...items[iIdx], title: e.target.value };
+                                  return { ...b, settings: { ...(b.settings || {}), items } };
+                                })
+                              }
+                              className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                              Item Description
+                            </label>
+                            <textarea
+                              rows={3}
+                              value={item.description || ''}
+                              onChange={(e) =>
+                                updateActiveBlock(selectedTarget.blockIndex, (b) => {
+                                  const items = [...(b.settings?.items || [])];
+                                  if (items[iIdx])
+                                    items[iIdx] = { ...items[iIdx], description: e.target.value };
+                                  return { ...b, settings: { ...(b.settings || {}), items } };
+                                })
+                              }
+                              className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                  {/* Pricing Tier Controls */}
+                  {selectedTarget.type === 'pricing' &&
+                    (() => {
+                      const pIdx = parseInt(
+                        selectedTarget.elementPath?.replace('pricing-', '') || '0',
+                        10
+                      );
+                      const tier =
+                        (selectedBlock.settings?.pricingTiers &&
+                          selectedBlock.settings.pricingTiers[pIdx]) || {
+                          name: '',
+                          price: '',
+                          period: '',
+                          features: [],
+                          popular: false,
+                        };
+
+                      return (
+                        <div className="space-y-4">
+                          <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                            Editing Pricing Tier #{pIdx + 1}
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                              Plan Name
+                            </label>
+                            <input
+                              type="text"
+                              value={tier.name || ''}
+                              onChange={(e) =>
+                                updateActiveBlock(selectedTarget.blockIndex, (b) => {
+                                  const tiers = [...(b.settings?.pricingTiers || [])];
+                                  if (tiers[pIdx])
+                                    tiers[pIdx] = { ...tiers[pIdx], name: e.target.value };
+                                  return {
+                                    ...b,
+                                    settings: { ...(b.settings || {}), pricingTiers: tiers },
+                                  };
+                                })
+                              }
+                              className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                                Price
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="$199"
+                                value={tier.price || ''}
+                                onChange={(e) =>
+                                  updateActiveBlock(selectedTarget.blockIndex, (b) => {
+                                    const tiers = [...(b.settings?.pricingTiers || [])];
+                                    if (tiers[pIdx])
+                                      tiers[pIdx] = { ...tiers[pIdx], price: e.target.value };
+                                    return {
+                                      ...b,
+                                      settings: { ...(b.settings || {}), pricingTiers: tiers },
+                                    };
+                                  })
+                                }
+                                className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                                Billing Period
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="/mo or /project"
+                                value={tier.period || ''}
+                                onChange={(e) =>
+                                  updateActiveBlock(selectedTarget.blockIndex, (b) => {
+                                    const tiers = [...(b.settings?.pricingTiers || [])];
+                                    if (tiers[pIdx])
+                                      tiers[pIdx] = { ...tiers[pIdx], period: e.target.value };
+                                    return {
+                                      ...b,
+                                      settings: { ...(b.settings || {}), pricingTiers: tiers },
+                                    };
+                                  })
+                                }
+                                className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                              <input
+                                type="checkbox"
+                                checked={!!tier.popular}
+                                onChange={(e) =>
+                                  updateActiveBlock(selectedTarget.blockIndex, (b) => {
+                                    const tiers = [...(b.settings?.pricingTiers || [])];
+                                    if (tiers[pIdx])
+                                      tiers[pIdx] = { ...tiers[pIdx], popular: e.target.checked };
+                                    return {
+                                      ...b,
+                                      settings: { ...(b.settings || {}), pricingTiers: tiers },
+                                    };
+                                  })
+                                }
+                                className="rounded border-slate-700 bg-slate-800 text-primary-600 focus:ring-primary-500"
+                              />
+                              <span>Highlight as "Most Popular"</span>
+                            </label>
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                              Features (One per line)
+                            </label>
+                            <textarea
+                              rows={4}
+                              value={(tier.features || []).join('\n')}
+                              onChange={(e) => {
+                                const lines = e.target.value.split('\n');
+                                updateActiveBlock(selectedTarget.blockIndex, (b) => {
+                                  const tiers = [...(b.settings?.pricingTiers || [])];
+                                  if (tiers[pIdx]) tiers[pIdx] = { ...tiers[pIdx], features: lines };
+                                  return {
+                                    ...b,
+                                    settings: { ...(b.settings || {}), pricingTiers: tiers },
+                                  };
+                                });
+                              }}
+                              className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                  {/* FAQ Controls */}
+                  {selectedTarget.type === 'faq' &&
+                    (() => {
+                      const fIdx = parseInt(
+                        selectedTarget.elementPath?.replace('faq-', '') || '0',
+                        10
+                      );
+                      const faq =
+                        (selectedBlock.settings?.faqItems &&
+                          selectedBlock.settings.faqItems[fIdx]) || {
+                          question: '',
+                          answer: '',
+                        };
+
+                      return (
+                        <div className="space-y-4">
+                          <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                            Editing FAQ #{fIdx + 1}
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                              Question
+                            </label>
+                            <input
+                              type="text"
+                              value={faq.question || ''}
+                              onChange={(e) =>
+                                updateActiveBlock(selectedTarget.blockIndex, (b) => {
+                                  const faqs = [...(b.settings?.faqItems || [])];
+                                  if (faqs[fIdx])
+                                    faqs[fIdx] = { ...faqs[fIdx], question: e.target.value };
+                                  return {
+                                    ...b,
+                                    settings: { ...(b.settings || {}), faqItems: faqs },
+                                  };
+                                })
+                              }
+                              className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500 font-semibold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                              Answer
+                            </label>
+                            <textarea
+                              rows={4}
+                              value={faq.answer || ''}
+                              onChange={(e) =>
+                                updateActiveBlock(selectedTarget.blockIndex, (b) => {
+                                  const faqs = [...(b.settings?.faqItems || [])];
+                                  if (faqs[fIdx])
+                                    faqs[fIdx] = { ...faqs[fIdx], answer: e.target.value };
+                                  return {
+                                    ...b,
+                                    settings: { ...(b.settings || {}), faqItems: faqs },
+                                  };
+                                })
+                              }
+                              className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                  {/* Form Embed Controls */}
+                  {selectedTarget.type === 'form' && (
+                    <div className="space-y-4">
+                      <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
+                        Lead Capture Form Settings
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                          Attached Form
+                        </label>
+                        <select
+                          value={selectedBlock.settings?.formId || ''}
+                          onChange={(e) =>
+                            updateActiveBlock(selectedTarget.blockIndex, (b) => ({
+                              ...b,
+                              settings: { ...(b.settings || {}), formId: e.target.value },
+                            }))
+                          }
+                          className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-primary-500"
+                        >
+                          {forms.map((f) => (
+                            <option key={f.id} value={f.id}>
+                              {f.name} (/{f.slug})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Inspector Footer */}
+                <div className="p-4 border-t border-slate-800 bg-slate-950/50 flex flex-col gap-2">
+                  <button
+                    onClick={handleSaveFunnel}
+                    disabled={isSaving}
+                    className={`w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                      hasUnsavedChanges
+                        ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 ring-2 ring-emerald-400/40'
+                        : 'bg-primary-600 hover:bg-primary-500 text-white'
+                    } disabled:opacity-50`}
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>
+                      {isSaving
+                        ? 'Saving to Live...'
+                        : hasUnsavedChanges
+                        ? 'Save Changes Now'
+                        : 'All Changes Saved'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </aside>
+        </div>
+
+        {/* Modal: Add Step (inside studio) */}
+        {showAddStepModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+            <div className="w-full max-w-md rounded-2xl bg-surface border border-border p-6 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h3 className="font-bold text-white text-base flex items-center gap-2">
+                  <Plus className="w-5 h-5 text-primary-400" />
+                  Add Funnel Step
+                </h3>
+                <button
+                  onClick={() => setShowAddStepModal(false)}
+                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-surface-card cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddStep} className="space-y-4 text-xs">
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">Step Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Sales Presentation Page"
+                    value={newStep.name}
+                    onChange={(e) => {
+                      const name = e.target.value;
+                      const slug = name
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, '-')
+                        .replace(/(^-|-$)/g, '');
+                      setNewStep({ ...newStep, name, slug });
+                    }}
+                    className="w-full px-3 py-2 rounded-xl bg-surface-card border border-border text-white focus:outline-none focus:border-primary-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">Step Slug *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newStep.slug}
+                    onChange={(e) => setNewStep({ ...newStep, slug: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-surface-card border border-border text-white focus:outline-none focus:border-primary-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">Step Type</label>
+                  <select
+                    value={newStep.type}
+                    onChange={(e) => setNewStep({ ...newStep, type: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-surface-card border border-border text-white focus:outline-none focus:border-primary-500"
+                  >
+                    {STEP_TYPES.map((t) => (
+                      <option key={t.type} value={t.type}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddStepModal(false)}
+                    className="px-4 py-2 rounded-xl border border-border text-slate-300 hover:bg-surface-card cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white font-semibold cursor-pointer"
+                  >
+                    Add Step
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
@@ -757,9 +2422,8 @@ export default function FunnelsPage() {
         </div>
       </div>
 
-      {viewMode === 'directory' ? (
-        /* Directory View */
-        <div className="space-y-6">
+      {/* Directory View */}
+      <div className="space-y-6">
           {/* Navigation Tabs: My Funnels vs Website Template Library */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
             <div className="flex items-center gap-2">
@@ -1051,486 +2715,6 @@ export default function FunnelsPage() {
             </div>
           )}
         </div>
-      ) : (
-        /* Visual Step & Block Builder View */
-        activeFunnel && (
-          <div className="space-y-6">
-            {/* Builder Toolbar */}
-            <div className="p-4 rounded-2xl bg-surface-card border border-border flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary-600/20 border border-primary-500/30 flex items-center justify-center text-primary-400">
-                  <Layers className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-white flex items-center gap-2">
-                    {activeFunnel.name}
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase">
-                      Published
-                    </span>
-                  </h2>
-                  <div className="flex items-center gap-2 text-xs text-slate-400 font-mono mt-0.5">
-                    <span>Public Route: /f/{activeFunnel.slug}</span>
-                    <button
-                      onClick={() => copyPublicLink(activeFunnel.slug)}
-                      className="text-primary-400 hover:underline text-[11px] cursor-pointer"
-                    >
-                      {copiedSlug === activeFunnel.slug ? 'Copied URL!' : 'Copy Link'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  onClick={() => handleOpenSectionTemplates()}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-primary-600 to-indigo-600 hover:from-primary-500 hover:to-indigo-500 text-white shadow-md shadow-primary-500/25 transition-all cursor-pointer"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                  <span>Add GHL Section</span>
-                </button>
-                <button
-                  onClick={() => setShowAddBlockModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-surface-elevated hover:bg-surface-elevated/80 border border-border text-slate-200 transition-colors cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Blank Block
-                </button>
-                <button
-                  onClick={() => setShowAddStepModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-surface-elevated hover:bg-surface-elevated/80 border border-border text-slate-200 transition-colors cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Add Step
-                </button>
-                <Link
-                  href={`/f/${activeFunnel.slug}`}
-                  target="_blank"
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  Live Preview
-                </Link>
-                <button
-                  onClick={() => handleDeleteFunnel(activeFunnel.id)}
-                  className="p-2 rounded-xl bg-surface-elevated hover:bg-rose-500/10 border border-border hover:border-rose-500/30 text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
-                  title="Delete Entire Funnel"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Main Builder Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              {/* Left Column: Funnel Steps Navigation */}
-              <div className="space-y-3">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Funnel Steps ({activeFunnel.steps?.length || 0})
-                </div>
-
-                <div className="space-y-2">
-                  {activeFunnel.steps?.map((step: any, idx: number) => {
-                    const isSelected = activeStepIndex === idx;
-                    return (
-                      <div
-                        key={step.id || idx}
-                        className={`w-full p-3.5 rounded-2xl border transition-all flex items-center justify-between group ${
-                          isSelected
-                            ? 'bg-primary-600/15 border-primary-500 text-white shadow-sm'
-                            : 'bg-surface-card border-border text-slate-300 hover:bg-surface-elevated/50'
-                        }`}
-                      >
-                        <button
-                          onClick={() => setActiveStepIndex(idx)}
-                          className="flex-1 text-left space-y-1 overflow-hidden cursor-pointer"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-full bg-surface-elevated border border-border flex items-center justify-center text-[10px] font-bold">
-                              {idx + 1}
-                            </span>
-                            <span className="font-bold text-xs truncate">{step.name}</span>
-                          </div>
-                          <div className="text-[11px] text-slate-500 font-mono">/{step.slug}</div>
-                        </button>
-
-                        <div className="flex items-center gap-1.5 pl-2">
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-elevated text-slate-400 border border-border uppercase">
-                            {step.type}
-                          </span>
-                          {activeFunnel.steps?.length > 1 && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteStep(idx);
-                              }}
-                              className="p-1 text-slate-500 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                              title="Delete Step"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Right Canvas: Blocks in Active Step */}
-              <div className="lg:col-span-3 space-y-4">
-                {activeFunnel.steps?.[activeStepIndex] && (
-                  <>
-                    {/* Step Canvas Header */}
-                    <div className="flex items-center justify-between border-b border-border pb-3">
-                      <div>
-                        <h3 className="font-bold text-base text-white">
-                          {activeFunnel.steps[activeStepIndex].name}
-                        </h3>
-                        <p className="text-xs text-slate-400">
-                          {activeFunnel.steps[activeStepIndex].blocks?.length || 0} modular sections (Drag cards to reorder)
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleOpenSectionTemplates()}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-primary-600 to-indigo-600 hover:from-primary-500 hover:to-indigo-500 text-white shadow-sm cursor-pointer"
-                        >
-                          <Sparkles className="w-3 h-3 text-amber-300" />
-                          <span>Insert Template</span>
-                        </button>
-                        <button
-                          onClick={() => setShowAddBlockModal(true)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-surface-elevated hover:bg-surface-elevated/80 border border-border text-slate-200 cursor-pointer"
-                        >
-                          <Plus className="w-3 h-3" />
-                          <span>Add Block</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Blocks Canvas List */}
-                    <div className="space-y-3">
-                      {(!activeFunnel.steps[activeStepIndex].blocks || activeFunnel.steps[activeStepIndex].blocks.length === 0) && (
-                        <div className="p-8 rounded-3xl bg-surface-card border border-dashed border-border text-center space-y-3">
-                          <p className="text-sm text-slate-400">This step has no sections yet.</p>
-                          <button
-                            onClick={() => handleOpenSectionTemplates()}
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold cursor-pointer"
-                          >
-                            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                            Browse GHL Section Templates
-                          </button>
-                        </div>
-                      )}
-
-                      {activeFunnel.steps[activeStepIndex].blocks?.map((block: any, bIdx: number) => {
-                        const isDragging = draggedBlockIndex === bIdx;
-                        const isDragOver = dragOverBlockIndex === bIdx;
-                        return (
-                          <React.Fragment key={block.id || bIdx}>
-                            <div
-                              draggable={true}
-                              onDragStart={(e) => handleDragStart(e, bIdx)}
-                              onDragOver={(e) => handleDragOver(e, bIdx)}
-                              onDrop={(e) => handleDrop(e, bIdx)}
-                              className={`p-5 rounded-2xl bg-surface-card border transition-all space-y-3 ${
-                                isDragging
-                                  ? 'opacity-40 border-dashed border-primary-500 scale-[0.99]'
-                                  : isDragOver
-                                  ? 'ring-2 ring-primary-500 border-primary-500 shadow-xl'
-                                  : 'border-border hover:border-slate-700'
-                              }`}
-                            >
-                              {/* Card Header Toolbar */}
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-2">
-                                  {/* Drag Handle */}
-                                  <div
-                                    className="cursor-grab active:cursor-grabbing p-1 text-slate-500 hover:text-white rounded-lg hover:bg-surface-elevated transition-colors"
-                                    title="Drag section to reorder"
-                                  >
-                                    <GripVertical className="w-4 h-4" />
-                                  </div>
-
-                                  <span className="w-5 h-5 rounded-full bg-surface-elevated border border-border flex items-center justify-center text-[10px] font-bold text-slate-400">
-                                    {bIdx + 1}
-                                  </span>
-
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary-500/10 text-primary-400 border border-primary-500/20 uppercase flex items-center gap-1">
-                                    {block.type === 'container' || block.type === 'columns' ? (
-                                      <Columns className="w-3 h-3" />
-                                    ) : block.type === 'pricing' ? (
-                                      <CreditCard className="w-3 h-3" />
-                                    ) : block.type === 'faq' ? (
-                                      <HelpCircle className="w-3 h-3" />
-                                    ) : (
-                                      <Layout className="w-3 h-3" />
-                                    )}
-                                    <span>{block.type.replace('_', ' ')}</span>
-                                  </span>
-                                </div>
-
-                                <div className="flex items-center gap-1.5">
-                                  {/* Up / Down arrows */}
-                                  <div className="flex items-center bg-surface-elevated/70 rounded-xl p-0.5 border border-border">
-                                    <button
-                                      type="button"
-                                      disabled={bIdx === 0}
-                                      onClick={() => handleMoveBlock(bIdx, 'up')}
-                                      className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 rounded-lg hover:bg-surface-card transition-colors cursor-pointer"
-                                      title="Move Section Up"
-                                    >
-                                      <ChevronUp className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={bIdx === (activeFunnel.steps[activeStepIndex].blocks.length - 1)}
-                                      onClick={() => handleMoveBlock(bIdx, 'down')}
-                                      className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 rounded-lg hover:bg-surface-card transition-colors cursor-pointer"
-                                      title="Move Section Down"
-                                    >
-                                      <ChevronDown className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-
-                                  {/* Duplicate */}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDuplicateBlock(bIdx)}
-                                    className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-surface-elevated border border-transparent hover:border-border transition-colors cursor-pointer"
-                                    title="Duplicate Section"
-                                  >
-                                    <Copy className="w-3.5 h-3.5" />
-                                  </button>
-
-                                  {/* Edit */}
-                                  <button
-                                    type="button"
-                                    onClick={() => openEditBlock(block, bIdx)}
-                                    className="flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-semibold bg-surface-elevated hover:bg-surface-elevated/80 border border-border text-slate-200 hover:text-white transition-colors cursor-pointer"
-                                  >
-                                    <Edit3 className="w-3.5 h-3.5 text-primary-400" />
-                                    Edit
-                                  </button>
-
-                                  {/* Delete */}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteBlock(bIdx)}
-                                    className="p-1.5 rounded-xl text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                                    title="Delete Section"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* Title & Subtitle */}
-                              <div>
-                                <h4 className="font-bold text-sm text-white">{block.title}</h4>
-                                {block.subtitle && (
-                                  <p className="text-xs text-slate-400 mt-0.5">{block.subtitle}</p>
-                                )}
-                              </div>
-
-                              {/* Rich Preview: Multi-Column Container */}
-                              {(block.type === 'container' || block.type === 'columns') && (
-                                <div className="pt-2">
-                                  <div className={`grid gap-2 text-xs ${
-                                    (block.settings?.columnsCount || block.settings?.columns?.length || 2) === 1
-                                      ? 'grid-cols-1'
-                                      : (block.settings?.columnsCount || block.settings?.columns?.length || 2) === 2
-                                      ? 'grid-cols-1 sm:grid-cols-2'
-                                      : (block.settings?.columnsCount || block.settings?.columns?.length || 2) === 3
-                                      ? 'grid-cols-1 sm:grid-cols-3'
-                                      : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
-                                  }`}>
-                                    {(block.settings?.columns || []).map((col: any, cIdx: number) => (
-                                      <div key={cIdx} className="p-3 rounded-xl bg-surface-elevated/40 border border-border/50 space-y-1.5">
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-[10px] font-bold text-primary-400 uppercase tracking-wider">
-                                            {col.badgeText || `Col ${cIdx + 1}`}
-                                          </span>
-                                          <span className="text-[9px] text-slate-500 font-mono">#{cIdx + 1}</span>
-                                        </div>
-                                        <div className="font-semibold text-slate-200 text-xs truncate">
-                                          {col.title || 'Untitled Column'}
-                                        </div>
-                                        {col.description && (
-                                          <p className="text-[11px] text-slate-400 line-clamp-2">{col.description}</p>
-                                        )}
-                                        {col.buttonText && (
-                                          <div className="pt-1">
-                                            <span className="inline-block text-[10px] font-medium px-2 py-0.5 rounded bg-primary-500/10 text-primary-400 border border-primary-500/20">
-                                              {col.buttonText} →
-                                            </span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Rich Preview: Pricing Table */}
-                              {block.type === 'pricing' && (
-                                <div className="pt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                  {(block.settings?.pricingTiers || []).map((tier: any, tIdx: number) => (
-                                    <div
-                                      key={tIdx}
-                                      className={`p-3 rounded-xl border text-xs space-y-1 ${
-                                        tier.popular
-                                          ? 'bg-primary-900/20 border-primary-500/40'
-                                          : 'bg-surface-elevated/40 border-border/50'
-                                      }`}
-                                    >
-                                      <div className="flex items-center justify-between">
-                                        <span className="font-bold text-slate-200">{tier.name}</span>
-                                        {tier.popular && (
-                                          <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-primary-500 text-white font-bold uppercase">
-                                            Popular
-                                          </span>
-                                        )}
-                                      </div>
-                                      <div className="text-sm font-extrabold text-white">
-                                        {tier.price}{' '}
-                                        <span className="text-[10px] font-normal text-slate-400">{tier.period}</span>
-                                      </div>
-                                      <div className="text-[10px] text-slate-400">
-                                        {(tier.features || []).length} features included
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-
-                              {/* Rich Preview: FAQ */}
-                              {block.type === 'faq' && (
-                                <div className="pt-2 space-y-1.5">
-                                  {(block.settings?.faqItems || []).slice(0, 3).map((faq: any, fIdx: number) => (
-                                    <div
-                                      key={fIdx}
-                                      className="p-2.5 rounded-xl bg-surface-elevated/40 border border-border/50 text-xs flex items-center justify-between"
-                                    >
-                                      <span className="font-medium text-slate-300 truncate">{faq.question}</span>
-                                      <ChevronDown className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
-                                    </div>
-                                  ))}
-                                  {(block.settings?.faqItems || []).length > 3 && (
-                                    <div className="text-[10px] text-slate-500 text-center font-medium">
-                                      +{(block.settings?.faqItems || []).length - 3} more questions
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* Rich Preview: Hero Header */}
-                              {block.type === 'hero' && (
-                                <div className="p-3 rounded-xl bg-surface-elevated/40 border border-border/50 text-[11px] text-slate-400 flex items-center justify-between">
-                                  <div>
-                                    {block.settings?.badgeText && (
-                                      <span className="text-primary-400 font-semibold">{block.settings.badgeText} • </span>
-                                    )}
-                                    <span>
-                                      CTA Button:{' '}
-                                      <strong className="text-slate-200">
-                                        "{block.settings?.buttonText || 'Get Started'}"
-                                      </strong>
-                                    </span>
-                                  </div>
-                                  <span className="text-[10px] px-2 py-0.5 rounded bg-surface-card text-slate-400">
-                                    Hero Header
-                                  </span>
-                                </div>
-                              )}
-
-                              {/* Rich Preview: Embedded Lead Form */}
-                              {block.type === 'form_embed' && (
-                                <div className="p-3 rounded-xl bg-surface-elevated/40 border border-border/50 text-[11px] text-slate-400 flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <FileText className="w-4 h-4 text-primary-400" />
-                                    <span>
-                                      Embedded Form ID:{' '}
-                                      <strong className="text-primary-400 font-mono">
-                                        {block.settings?.formId || 'No form attached'}
-                                      </strong>
-                                    </span>
-                                  </div>
-                                  <span className="text-[10px] px-2 py-0.5 rounded bg-surface-card text-slate-400">
-                                    Opt-in Form
-                                  </span>
-                                </div>
-                              )}
-
-                              {/* Rich Preview: Features */}
-                              {block.type === 'features' && (
-                                <div className="p-3 rounded-xl bg-surface-elevated/40 border border-border/50 text-[11px] text-slate-400">
-                                  <span>
-                                    Feature Cards:{' '}
-                                    <strong className="text-slate-200">
-                                      {(block.settings?.items || []).length} items configured
-                                    </strong>
-                                  </span>
-                                </div>
-                              )}
-
-                              {/* Rich Preview: Testimonials */}
-                              {block.type === 'testimonials' && (
-                                <div className="p-3 rounded-xl bg-surface-elevated/40 border border-border/50 text-[11px] text-slate-400">
-                                  <span>
-                                    Testimonials:{' '}
-                                    <strong className="text-slate-200">
-                                      {(block.settings?.items || []).length} client reviews
-                                    </strong>
-                                  </span>
-                                </div>
-                              )}
-
-                              {/* Rich Preview: CTA Banner */}
-                              {block.type === 'cta' && (
-                                <div className="p-3 rounded-xl bg-gradient-to-r from-primary-900/30 to-slate-900 border border-primary-500/30 text-[11px] text-slate-300 flex items-center justify-between">
-                                  <span>High-Conversion Banner CTA: "{block.settings?.buttonText || 'Get Started'}"</span>
-                                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                                </div>
-                              )}
-
-                              {/* Rich Preview: Video */}
-                              {block.type === 'video' && (
-                                <div className="p-3 rounded-xl bg-surface-elevated/40 border border-border/50 text-[11px] text-slate-400 flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <Video className="w-4 h-4 text-primary-400" />
-                                    <span>Responsive 16:9 Video Player</span>
-                                  </div>
-                                  <span className="text-[10px] px-2 py-0.5 rounded bg-surface-card text-slate-400">
-                                    Video Block
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* In-between section insert button */}
-                            <div className="flex items-center justify-center my-1 opacity-20 hover:opacity-100 transition-opacity">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenSectionTemplates(bIdx + 1)}
-                                className="px-3 py-1 rounded-full bg-surface-elevated border border-dashed border-border hover:border-primary-500/50 text-[11px] text-slate-400 hover:text-primary-400 font-medium flex items-center gap-1.5 cursor-pointer transition-all shadow-sm"
-                              >
-                                <Plus className="w-3 h-3 text-primary-400" />
-                                <span>Insert Section Here</span>
-                              </button>
-                            </div>
-                          </React.Fragment>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        )
-      )}
 
       {/* Modal: Create Funnel */}
       {showCreateModal && (
