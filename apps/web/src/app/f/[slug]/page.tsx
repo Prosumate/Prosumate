@@ -68,12 +68,7 @@ export default function PublicFunnelPage() {
 
     try {
       // 1. Submit form to public endpoint (triggers CRM contact auto-creation & workflow dispatch)
-      const res = await fetch(`http://localhost:4000/api/v1/public/forms/${formSlug}/submit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: formData }),
-      });
-      const submitData = await res.json();
+      const submitData = await api.submitPublicForm(formSlug, formData);
 
       if (submitData.success) {
         // 2. Record Funnel Conversion Event
