@@ -9,14 +9,20 @@ export function hashPasswordSimple(password: string): string {
 export function seedDemoData() {
   memoryDb.clear();
 
-  // 1. Platform Superadmin
-  const platformAdmin = memoryDb.createUser({
-    email: 'admin@prosumate.local',
-    passwordHash: hashPasswordSimple('SuperAdmin2026!'),
-    firstName: 'System',
-    lastName: 'Administrator',
+  // 1. Master Proprietary Administrator
+  const primaryUser = memoryDb.createUser({
+    email: 'Prosumateai@gmail.com',
+    passwordHash: hashPasswordSimple('Prosumate@256'),
+    firstName: 'Prosumate',
+    lastName: 'Admin',
     isPlatformAdmin: true,
   });
+
+  // Reference aliases for downstream CRM and pipeline records
+  const platformAdmin = primaryUser;
+  const agencyOwner = primaryUser;
+  const austinAdmin = primaryUser;
+  const salesRep = primaryUser;
 
   // 2. Demo Agency
   const agency = memoryDb.createAgency({
@@ -58,85 +64,23 @@ export function seedDemoData() {
     },
   });
 
-  // Platform Superadmin — give access to the demo agency and its locations
+  // Assign Primary User as Owner and Admin across agency and locations
   memoryDb.createAgencyMembership({
-    userId: platformAdmin.id,
+    userId: primaryUser.id,
     agencyId: agency.id,
     role: AgencyRole.OWNER,
   });
 
   memoryDb.createLocationMembership({
-    userId: platformAdmin.id,
+    userId: primaryUser.id,
     locationId: locationAustin.id,
     role: LocationRole.LOCATION_ADMIN,
   });
 
   memoryDb.createLocationMembership({
-    userId: platformAdmin.id,
+    userId: primaryUser.id,
     locationId: locationMiami.id,
     role: LocationRole.LOCATION_ADMIN,
-  });
-
-  // 4. Agency Owner
-  const agencyOwner = memoryDb.createUser({
-    email: 'sarah.owner@apex.agency',
-    passwordHash: hashPasswordSimple('AgencyOwner2026!'),
-    firstName: 'Sarah',
-    lastName: 'Vance',
-    phone: '+1-512-555-0199',
-  });
-
-  memoryDb.createAgencyMembership({
-    userId: agencyOwner.id,
-    agencyId: agency.id,
-    role: AgencyRole.OWNER,
-  });
-
-  // Assign Owner to both locations
-  memoryDb.createLocationMembership({
-    userId: agencyOwner.id,
-    locationId: locationAustin.id,
-    role: LocationRole.LOCATION_ADMIN,
-  });
-
-  memoryDb.createLocationMembership({
-    userId: agencyOwner.id,
-    locationId: locationMiami.id,
-    role: LocationRole.LOCATION_ADMIN,
-  });
-
-  // 5. Location Admin (Austin only)
-  const austinAdmin = memoryDb.createUser({
-    email: 'marcus.admin@apex.agency',
-    passwordHash: hashPasswordSimple('LocationAdmin2026!'),
-    firstName: 'Marcus',
-    lastName: 'Cole',
-  });
-
-  memoryDb.createAgencyMembership({
-    userId: austinAdmin.id,
-    agencyId: agency.id,
-    role: AgencyRole.MEMBER,
-  });
-
-  memoryDb.createLocationMembership({
-    userId: austinAdmin.id,
-    locationId: locationAustin.id,
-    role: LocationRole.LOCATION_ADMIN,
-  });
-
-  // 6. Location User (Austin sales rep)
-  const salesRep = memoryDb.createUser({
-    email: 'chloe.sales@apex.agency',
-    passwordHash: hashPasswordSimple('SalesUser2026!'),
-    firstName: 'Chloe',
-    lastName: 'Bennett',
-  });
-
-  memoryDb.createLocationMembership({
-    userId: salesRep.id,
-    locationId: locationAustin.id,
-    role: LocationRole.LOCATION_USER,
   });
 
   // 7. Audit Events

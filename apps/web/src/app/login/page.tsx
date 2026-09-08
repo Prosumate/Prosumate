@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { ShieldCheck, Sparkles, Building2, UserCheck, ArrowRight, Lock, Mail } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Lock, Mail } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -39,11 +39,6 @@ export default function LoginPage() {
     } else {
       setErrorMessage(res.error?.message || 'Authentication failed. Please check your credentials.');
     }
-  };
-
-  const handleQuickLogin = (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
   };
 
   return (
@@ -121,62 +116,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          {/* Quick Demo Credentials */}
-          <div className="mt-6 pt-6 border-t border-border">
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3 text-center">
-              Quick Demo Accounts
-            </p>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('admin@prosumate.local', 'SuperAdmin2026!')}
-                className="p-2.5 rounded-lg bg-surface-card hover:bg-surface-elevated border border-border text-left transition-colors cursor-pointer group"
-              >
-                <div className="font-semibold text-indigo-300 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-primary-400" />
-                  Superadmin
-                </div>
-                <div className="text-[11px] text-slate-500 mt-0.5 truncate">Full platform scope</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('sarah.owner@apex.agency', 'AgencyOwner2026!')}
-                className="p-2.5 rounded-lg bg-surface-card hover:bg-surface-elevated border border-border text-left transition-colors cursor-pointer"
-              >
-                <div className="font-semibold text-emerald-300 flex items-center gap-1.5">
-                  <Building2 className="w-3.5 h-3.5 text-emerald-400" />
-                  Agency Owner
-                </div>
-                <div className="text-[11px] text-slate-500 mt-0.5 truncate">Apex Growth Agency</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('marcus.admin@apex.agency', 'LocationAdmin2026!')}
-                className="p-2.5 rounded-lg bg-surface-card hover:bg-surface-elevated border border-border text-left transition-colors cursor-pointer"
-              >
-                <div className="font-semibold text-amber-300 flex items-center gap-1.5">
-                  <UserCheck className="w-3.5 h-3.5 text-amber-400" />
-                  Location Admin
-                </div>
-                <div className="text-[11px] text-slate-500 mt-0.5 truncate">Austin HQ scope</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('chloe.sales@apex.agency', 'SalesUser2026!')}
-                className="p-2.5 rounded-lg bg-surface-card hover:bg-surface-elevated border border-border text-left transition-colors cursor-pointer"
-              >
-                <div className="font-semibold text-slate-300 flex items-center gap-1.5">
-                  <UserCheck className="w-3.5 h-3.5 text-slate-400" />
-                  Sales Rep
-                </div>
-                <div className="text-[11px] text-slate-500 mt-0.5 truncate">Limited access</div>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Footer Link */}
