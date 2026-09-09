@@ -500,7 +500,8 @@ export default function FunnelsPage() {
       alert('A website funnel must contain at least one step.');
       return;
     }
-    if (!window.confirm(`Delete step "${activeFunnel.steps[stepIndex]?.name}"?`)) return;
+    const stepName = activeFunnel.steps[stepIndex]?.name || `Step ${stepIndex + 1}`;
+    if (!window.confirm(`Delete step "${stepName}"? All section blocks within this step will be removed.`)) return;
 
     try {
       const updatedSteps = activeFunnel.steps.filter((_: any, idx: number) => idx !== stepIndex);
@@ -511,7 +512,7 @@ export default function FunnelsPage() {
       if (res.success && res.data) {
         setActiveFunnel(res.data);
         setActiveStepIndex(Math.max(0, stepIndex - 1));
-        setSuccessMessage('Step deleted');
+        setSuccessMessage(`Step "${stepName}" deleted`);
         setTimeout(() => setSuccessMessage(null), 3000);
         fetchFunnelsAndData(locationId);
       } else {
@@ -524,21 +525,32 @@ export default function FunnelsPage() {
 
   const handleDeleteFunnel = async (funnelId: string) => {
     if (!locationId) return;
-    if (!window.confirm('Are you sure you want to delete this funnel? All associated steps will be removed.')) return;
+    const target = funnels.find((f) => f.id === funnelId) || (activeFunnel?.id === funnelId ? activeFunnel : null);
+    const targetName = target?.name || 'this website / funnel';
+    if (!window.confirm(`Are you sure you want to permanently delete "${targetName}"? All associated steps, pages, and configurations will be removed.`)) {
+      return;
+    }
 
     try {
+      // Optimistically update list
+      setFunnels((prev) => prev.filter((f) => f.id !== funnelId));
+      if (activeFunnel?.id === funnelId) {
+        setActiveFunnel(null);
+        setViewMode('directory');
+      }
+
       const res = await api.deleteFunnel(locationId, funnelId);
       if (res.success) {
-        setViewMode('directory');
-        setActiveFunnel(null);
-        setSuccessMessage('Funnel deleted successfully');
+        setSuccessMessage(`"${targetName}" deleted successfully`);
         setTimeout(() => setSuccessMessage(null), 3000);
         fetchFunnelsAndData(locationId);
       } else {
         setErrorMessage(res.error?.message || 'Failed to delete funnel');
+        fetchFunnelsAndData(locationId);
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Error deleting funnel');
+      fetchFunnelsAndData(locationId);
     }
   };
 
@@ -793,21 +805,40 @@ export default function FunnelsPage() {
             {/* Step Switcher Tabs */}
             <div className="hidden lg:flex items-center gap-1 bg-slate-950/70 p-1 rounded-xl border border-slate-800">
               {activeFunnel.steps.map((step: any, sIdx: number) => (
-                <button
+                <div
                   key={sIdx}
-                  onClick={() => {
-                    setActiveStepIndex(sIdx);
-                    setSelectedTarget(null);
-                  }}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
                     activeStepIndex === sIdx
                       ? 'bg-primary-600 text-white font-semibold shadow-sm'
                       : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                   }`}
                 >
-                  <span className="text-[10px] opacity-70">Step {sIdx + 1}:</span>
-                  <span className="truncate max-w-[100px]">{step.name}</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveStepIndex(sIdx);
+                      setSelectedTarget(null);
+                    }}
+                    className="cursor-pointer flex items-center gap-1"
+                  >
+                    <span className="text-[10px] opacity-70">Step {sIdx + 1}:</span>
+                    <span className="truncate max-w-[100px]">{step.name}</span>
+                  </button>
+
+                  {activeFunnel.steps.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteStep(sIdx);
+                      }}
+                      className="p-0.5 rounded text-slate-400 hover:text-rose-300 hover:bg-rose-500/20 transition-colors cursor-pointer"
+                      title={`Delete Step "${step.name}"`}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
               ))}
               <button
                 onClick={() => setShowAddStepModal(true)}
@@ -871,6 +902,16 @@ export default function FunnelsPage() {
               <ExternalLink className="w-3.5 h-3.5" />
               <span className="hidden md:inline">Preview</span>
             </a>
+
+            <button
+              type="button"
+              onClick={() => handleDeleteFunnel(activeFunnel.id)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-all cursor-pointer"
+              title="Delete this entire website / funnel"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Delete Website</span>
+            </button>
 
             <button
               onClick={handleSaveFunnel}
@@ -3371,9 +3412,22 @@ export default function FunnelsPage() {
                             </p>
                           </div>
 
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase flex-shrink-0">
-                            Published
-                          </span>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase">
+                              Published
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteFunnel(f.id);
+                              }}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                              title="Delete Website / Funnel"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
 
                         {/* Step Sequence Flow */}
@@ -3439,6 +3493,18 @@ export default function FunnelsPage() {
                             Visit Live
                             <ExternalLink className="w-3 h-3" />
                           </Link>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteFunnel(f.id);
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-rose-500/20 text-xs font-semibold transition-colors cursor-pointer"
+                            title="Delete Website / Funnel"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            Delete
+                          </button>
                           <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-primary-400 transition-colors" />
                         </div>
                       </div>

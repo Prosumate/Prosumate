@@ -463,59 +463,44 @@ export type RecordUsageInput = z.infer<typeof recordUsageSchema>;
 export const funnelBlockSchema = z.object({
   id: z.string().optional(),
   type: z.string().trim().min(1, 'Block type is required'),
-  title: z.string().trim().min(1, 'Block title is required'),
-  subtitle: z.string().trim().optional(),
-  content: z.string().trim().optional(),
-  settings: z.record(z.unknown()).default({}),
+  title: z.string().trim().optional().nullable().default(''),
+  subtitle: z.string().trim().optional().nullable(),
+  content: z.string().trim().optional().nullable(),
+  settings: z.record(z.any()).default({}),
   order: z.number().int().nonnegative().default(0),
-});
+}).passthrough();
 
 export type FunnelBlockInput = z.infer<typeof funnelBlockSchema>;
 
 export const funnelStepSchema = z.object({
   id: z.string().optional(),
   name: z.string().trim().min(1, 'Step name is required'),
-  slug: z
-    .string()
-    .trim()
-    .min(1)
-    .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens'),
-  type: z.enum(['opt_in', 'sales', 'checkout', 'upsell', 'downsell', 'thank_you']),
+  slug: z.string().trim().min(1),
+  type: z.string().trim().default('opt_in'),
   order: z.number().int().nonnegative().default(0),
   blocks: z.array(funnelBlockSchema).default([]),
   nextStepSlug: z.string().trim().optional().nullable(),
-});
+}).passthrough();
 
 export type FunnelStepInput = z.infer<typeof funnelStepSchema>;
 
 export const createFunnelSchema = z.object({
-  name: z.string().trim().min(2).max(120),
-  slug: z
-    .string()
-    .trim()
-    .min(2)
-    .max(100)
-    .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens'),
-  description: z.string().trim().max(500).optional(),
+  name: z.string().trim().min(1, 'Funnel name is required').max(120),
+  slug: z.string().trim().min(1).max(100),
+  description: z.string().trim().max(500).optional().nullable(),
   published: z.boolean().default(true),
   steps: z.array(funnelStepSchema).min(1, 'Funnel must contain at least one step'),
-});
+}).passthrough();
 
 export type CreateFunnelInput = z.infer<typeof createFunnelSchema>;
 
 export const updateFunnelSchema = z.object({
-  name: z.string().trim().min(2).max(120).optional(),
-  slug: z
-    .string()
-    .trim()
-    .min(2)
-    .max(100)
-    .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens')
-    .optional(),
-  description: z.string().trim().max(500).optional(),
+  name: z.string().trim().min(1).max(120).optional(),
+  slug: z.string().trim().min(1).max(100).optional(),
+  description: z.string().trim().max(500).optional().nullable(),
   published: z.boolean().optional(),
   steps: z.array(funnelStepSchema).optional(),
-});
+}).passthrough();
 
 export type UpdateFunnelInput = z.infer<typeof updateFunnelSchema>;
 

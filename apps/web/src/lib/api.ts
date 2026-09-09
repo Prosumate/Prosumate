@@ -46,7 +46,7 @@ class ApiClient {
   async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
     const token = this.getAccessToken();
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...((options.headers as Record<string, string>) || {}),
     };

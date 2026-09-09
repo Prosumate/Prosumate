@@ -2023,7 +2023,7 @@ export class MemoryDatabase {
     updates: Partial<{
       name: string;
       slug: string;
-      description: string;
+      description: string | null;
       published: boolean;
       steps: any[];
     }>
