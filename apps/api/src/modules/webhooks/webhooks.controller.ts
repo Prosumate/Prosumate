@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { memoryDb } from '@prosumate/database';
+import { db } from '../../database';
 import { sendSuccess } from '../../common/response';
 import { authGuard } from '../../common/guards/auth.guard';
 import { tenantGuard } from '../../common/guards/tenant.guard';
@@ -17,7 +17,7 @@ export async function webhookRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('webhooks:read')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const webhooks = memoryDb.listWebhooks(locationId);
+      const webhooks = db().listWebhooks(locationId);
 
       return sendSuccess(reply, webhooks, 200, { total: webhooks.length });
     }
@@ -29,7 +29,7 @@ export async function webhookRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('webhooks:manage')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const location = memoryDb.findLocationById(locationId);
+      const location = db().findLocationById(locationId);
       if (!location) throw new NotFoundError(`Location '${locationId}' not found`);
 
       const parseResult = createWebhookSchema.safeParse(request.body);
@@ -37,7 +37,7 @@ export async function webhookRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const webhook = memoryDb.createWebhook(locationId, parseResult.data);
+      const webhook = db().createWebhook(locationId, parseResult.data);
       return sendSuccess(reply, webhook, 201);
     }
   );
@@ -48,7 +48,7 @@ export async function webhookRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('webhooks:manage')] },
     async (request, reply) => {
       const { locationId, webhookId } = request.params;
-      const deleted = memoryDb.deleteWebhook(locationId, webhookId);
+      const deleted = db().deleteWebhook(locationId, webhookId);
       if (!deleted) throw new NotFoundError(`Webhook '${webhookId}' not found`);
 
       return sendSuccess(reply, { deleted: true, webhookId }, 200);
@@ -61,7 +61,7 @@ export async function webhookRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('webhooks:manage')] },
     async (request, reply) => {
       const { locationId, webhookId } = request.params;
-      const webhook = memoryDb.findWebhookById(locationId, webhookId);
+      const webhook = db().findWebhookById(locationId, webhookId);
       if (!webhook) throw new NotFoundError(`Webhook '${webhookId}' not found`);
 
       const testPayload = {
@@ -79,7 +79,7 @@ export async function webhookRoutes(fastify: FastifyInstance) {
         await sendWebhookHttp(webhook.targetUrl, webhook.secretKey, 'test.ping', testPayload);
       }
 
-      const log = memoryDb.dispatchWebhook(locationId, webhookId, 'test.ping', testPayload);
+      const log = db().dispatchWebhook(locationId, webhookId, 'test.ping', testPayload);
       return sendSuccess(reply, log, 200);
     }
   );

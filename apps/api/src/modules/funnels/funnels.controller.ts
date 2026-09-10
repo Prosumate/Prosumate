@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { memoryDb } from '@prosumate/database';
+import { db } from '../../database';
 import { sendSuccess } from '../../common/response';
 import { authGuard } from '../../common/guards/auth.guard';
 import { tenantGuard } from '../../common/guards/tenant.guard';
@@ -20,7 +20,7 @@ export async function funnelRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('funnels:read')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const funnels = memoryDb.listFunnelsByLocation(locationId);
+      const funnels = db().listFunnelsByLocation(locationId);
 
       return sendSuccess(reply, funnels, 200, { total: funnels.length });
     }
@@ -32,7 +32,7 @@ export async function funnelRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('funnels:manage')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const location = memoryDb.findLocationById(locationId);
+      const location = db().findLocationById(locationId);
       if (!location) throw new NotFoundError(`Location '${locationId}' not found`);
 
       const parseResult = createFunnelSchema.safeParse(request.body);
@@ -40,7 +40,7 @@ export async function funnelRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const funnel = memoryDb.createFunnel({
+      const funnel = db().createFunnel({
         agencyId: location.agencyId,
         locationId,
         name: parseResult.data.name,
@@ -60,7 +60,7 @@ export async function funnelRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('funnels:read')] },
     async (request, reply) => {
       const { locationId, funnelId } = request.params;
-      const funnel = memoryDb.findFunnelById(funnelId);
+      const funnel = db().findFunnelById(funnelId);
       if (!funnel || funnel.locationId !== locationId) {
         throw new NotFoundError(`Funnel '${funnelId}' not found in this location`);
       }
@@ -75,7 +75,7 @@ export async function funnelRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('funnels:manage')] },
     async (request, reply) => {
       const { locationId, funnelId } = request.params;
-      const funnel = memoryDb.findFunnelById(funnelId);
+      const funnel = db().findFunnelById(funnelId);
       if (!funnel || funnel.locationId !== locationId) {
         throw new NotFoundError(`Funnel '${funnelId}' not found in this location`);
       }
@@ -85,7 +85,7 @@ export async function funnelRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const updated = memoryDb.updateFunnel(funnelId, parseResult.data);
+      const updated = db().updateFunnel(funnelId, parseResult.data);
 
       return sendSuccess(reply, updated, 200);
     }
@@ -97,12 +97,12 @@ export async function funnelRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('funnels:manage')] },
     async (request, reply) => {
       const { locationId, funnelId } = request.params;
-      const funnel = memoryDb.findFunnelById(funnelId);
+      const funnel = db().findFunnelById(funnelId);
       if (!funnel || funnel.locationId !== locationId) {
         throw new NotFoundError(`Funnel '${funnelId}' not found in this location`);
       }
 
-      memoryDb.deleteFunnel(funnelId);
+      db().deleteFunnel(funnelId);
 
       return sendSuccess(reply, { deleted: true, id: funnelId }, 200);
     }
@@ -115,7 +115,7 @@ export async function publicFunnelRoutes(fastify: FastifyInstance) {
     '/funnels/:slug',
     async (request, reply) => {
       const { slug } = request.params;
-      const funnel = memoryDb.findPublicFunnelBySlug(slug);
+      const funnel = db().findPublicFunnelBySlug(slug);
       if (!funnel) {
         throw new NotFoundError(`Published funnel '${slug}' not found`);
       }
@@ -124,7 +124,7 @@ export async function publicFunnelRoutes(fastify: FastifyInstance) {
       const enrichedSteps = funnel.steps.map((step: any) => {
         const enrichedBlocks = step.blocks.map((block: any) => {
           if (block.type === 'form_embed' && block.settings?.formId) {
-            const form = memoryDb.findFormById(block.settings.formId);
+            const form = db().findFormById(block.settings.formId);
             return {
               ...block,
               embeddedForm: form
@@ -157,7 +157,7 @@ export async function publicFunnelRoutes(fastify: FastifyInstance) {
     '/funnels/:slug/events',
     async (request, reply) => {
       const { slug } = request.params;
-      const funnel = memoryDb.findPublicFunnelBySlug(slug);
+      const funnel = db().findPublicFunnelBySlug(slug);
       if (!funnel) {
         throw new NotFoundError(`Published funnel '${slug}' not found`);
       }
@@ -168,7 +168,7 @@ export async function publicFunnelRoutes(fastify: FastifyInstance) {
       }
 
       const { stepSlug, type } = parseResult.data;
-      const result = memoryDb.recordFunnelEvent(funnel.id, stepSlug, type);
+      const result = db().recordFunnelEvent(funnel.id, stepSlug, type);
 
       return sendSuccess(reply, result, 200);
     }

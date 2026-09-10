@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { memoryDb } from '@prosumate/database';
+import { db } from '../../database';
 import { sendSuccess } from '../../common/response';
 import { authGuard } from '../../common/guards/auth.guard';
 import { tenantGuard } from '../../common/guards/tenant.guard';
@@ -20,7 +20,7 @@ export async function reputationRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('reputation:read')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const reviews = memoryDb.listCustomerReviews(locationId);
+      const reviews = db().listCustomerReviews(locationId);
 
       const totalReviews = reviews.length;
       const averageRating =
@@ -47,7 +47,7 @@ export async function reputationRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const updated = memoryDb.replyToReview(locationId, reviewId, parseResult.data.replyText);
+      const updated = db().replyToReview(locationId, reviewId, parseResult.data.replyText);
 
       return sendSuccess(reply, updated, 200);
     }
@@ -59,7 +59,7 @@ export async function reputationRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('reputation:manage')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const location = memoryDb.findLocationById(locationId);
+      const location = db().findLocationById(locationId);
       if (!location) throw new NotFoundError(`Location '${locationId}' not found`);
 
       const parseResult = sendReviewRequestSchema.safeParse(request.body);
@@ -67,7 +67,7 @@ export async function reputationRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const reviewReq = memoryDb.sendReviewRequest(locationId, {
+      const reviewReq = db().sendReviewRequest(locationId, {
         agencyId: location.agencyId,
         contactId: parseResult.data.contactId,
         channel: parseResult.data.channel,
@@ -84,7 +84,7 @@ export async function reputationRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('reputation:read')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const requests = memoryDb.listReviewRequests(locationId);
+      const requests = db().listReviewRequests(locationId);
 
       return sendSuccess(reply, requests, 200, { total: requests.length });
     }
@@ -97,10 +97,10 @@ export async function publicReputationRoutes(fastify: FastifyInstance) {
     '/locations/:locationId/reviews',
     async (request, reply) => {
       const { locationId } = request.params;
-      const location = memoryDb.findLocationById(locationId);
+      const location = db().findLocationById(locationId);
       if (!location) throw new NotFoundError(`Location '${locationId}' not found`);
 
-      const reviews = memoryDb.listCustomerReviews(locationId);
+      const reviews = db().listCustomerReviews(locationId);
       const averageRating =
         reviews.length > 0
           ? Number((reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1))
@@ -120,7 +120,7 @@ export async function publicReputationRoutes(fastify: FastifyInstance) {
     '/locations/:locationId/reviews',
     async (request, reply) => {
       const { locationId } = request.params;
-      const location = memoryDb.findLocationById(locationId);
+      const location = db().findLocationById(locationId);
       if (!location) throw new NotFoundError(`Location '${locationId}' not found`);
 
       const parseResult = publicSubmitReviewSchema.safeParse(request.body);
@@ -128,7 +128,7 @@ export async function publicReputationRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const review = memoryDb.submitPublicReview(locationId, {
+      const review = db().submitPublicReview(locationId, {
         agencyId: location.agencyId,
         authorName: parseResult.data.authorName,
         rating: parseResult.data.rating,

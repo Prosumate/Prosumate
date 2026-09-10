@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { memoryDb } from '@prosumate/database';
+import { db } from '../../database';
 import { sendSuccess } from '../../common/response';
 import { authGuard } from '../../common/guards/auth.guard';
 import { tenantGuard } from '../../common/guards/tenant.guard';
@@ -15,13 +15,13 @@ export async function agencyRoutes(fastify: FastifyInstance) {
   fastify.get('/', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = request.user!;
     if (user.isPlatformAdmin) {
-      const allAgencies = memoryDb.listAgencies();
+      const allAgencies = db().listAgencies();
       return sendSuccess(reply, allAgencies, 200, { total: allAgencies.length });
     }
 
-    const memberships = memoryDb.getUserAgencyMemberships(user.userId);
+    const memberships = db().getUserAgencyMemberships(user.userId);
     const userAgencies = memberships
-      .map((m) => memoryDb.findAgencyById(m.agencyId))
+      .map((m) => db().findAgencyById(m.agencyId))
       .filter((a): a is Agency => a !== undefined);
 
     return sendSuccess(reply, userAgencies, 200, { total: userAgencies.length });
@@ -33,12 +33,12 @@ export async function agencyRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('agency:read')] },
     async (request, reply) => {
       const { agencyId } = request.params;
-      const agency = memoryDb.findAgencyById(agencyId);
+      const agency = db().findAgencyById(agencyId);
       if (!agency) {
         throw new NotFoundError(`Agency with id '${agencyId}' not found`);
       }
 
-      const locations = memoryDb.listLocationsByAgency(agencyId);
+      const locations = db().listLocationsByAgency(agencyId);
       return sendSuccess(reply, { ...agency, locations }, 200);
     }
   );
@@ -54,7 +54,7 @@ export async function agencyRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const agency = memoryDb.findAgencyById(agencyId);
+      const agency = db().findAgencyById(agencyId);
       if (!agency) {
         throw new NotFoundError(`Agency with id '${agencyId}' not found`);
       }
@@ -63,7 +63,7 @@ export async function agencyRoutes(fastify: FastifyInstance) {
       if (parseResult.data.settings) agency.settings = { ...agency.settings, ...parseResult.data.settings };
       agency.updatedAt = new Date().toISOString();
 
-      memoryDb.addAuditLog({
+      db().addAuditLog({
         agencyId,
         actorId: request.user!.userId,
         actorEmail: request.user!.email,

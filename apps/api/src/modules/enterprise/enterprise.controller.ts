@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { memoryDb } from '@prosumate/database';
+import { db } from '../../database';
 import { sendSuccess } from '../../common/response';
 import { authGuard } from '../../common/guards/auth.guard';
 import { tenantGuard } from '../../common/guards/tenant.guard';
@@ -16,7 +16,7 @@ export async function enterpriseRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('sso:manage')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const sso = memoryDb.getSsoConfig(locationId);
+      const sso = db().getSsoConfig(locationId);
 
       return sendSuccess(reply, sso, 200);
     }
@@ -28,7 +28,7 @@ export async function enterpriseRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('sso:manage')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const location = memoryDb.findLocationById(locationId);
+      const location = db().findLocationById(locationId);
       if (!location) throw new NotFoundError(`Location '${locationId}' not found`);
 
       const parseResult = updateSsoConfigSchema.safeParse(request.body);
@@ -36,7 +36,7 @@ export async function enterpriseRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const updated = memoryDb.updateSsoConfig(locationId, parseResult.data);
+      const updated = db().updateSsoConfig(locationId, parseResult.data);
       return sendSuccess(reply, updated, 200);
     }
   );
@@ -49,7 +49,7 @@ export async function enterpriseRoutes(fastify: FastifyInstance) {
       const { locationId } = request.params;
       const format = request.query.format === 'json' ? 'json' : 'csv';
 
-      const exported = memoryDb.exportAuditLogs(locationId, format);
+      const exported = db().exportAuditLogs(locationId, format);
 
       if (format === 'csv') {
         reply.header('Content-Type', 'text/csv');

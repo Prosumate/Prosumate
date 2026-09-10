@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { memoryDb } from '@prosumate/database';
+import { db } from '../../database';
 import { sendSuccess } from '../../common/response';
 import { authGuard } from '../../common/guards/auth.guard';
 import { tenantGuard } from '../../common/guards/tenant.guard';
@@ -23,7 +23,7 @@ export async function locationRoutes(fastify: FastifyInstance) {
       const { agencyId } = request.params;
       const user = request.user!;
 
-      const allAgencyLocations = memoryDb.listLocationsByAgency(agencyId);
+      const allAgencyLocations = db().listLocationsByAgency(agencyId);
 
       // If user is Platform Admin or Agency Owner/Admin, return all locations
       if (user.isPlatformAdmin || user.agencyRole === 'OWNER' || user.agencyRole === 'ADMIN') {
@@ -31,7 +31,7 @@ export async function locationRoutes(fastify: FastifyInstance) {
       }
 
       // Otherwise, filter strictly by user's assigned locations
-      const userLocationMemberships = memoryDb.getUserLocationMemberships(user.userId);
+      const userLocationMemberships = db().getUserLocationMemberships(user.userId);
       const allowedLocationIds = new Set(userLocationMemberships.map((m) => m.locationId));
       const filtered = allAgencyLocations.filter((l) => allowedLocationIds.has(l.id));
 
@@ -50,7 +50,7 @@ export async function locationRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const location = memoryDb.createLocation({
+      const location = db().createLocation({
         agencyId,
         name: parseResult.data.name,
         timezone: parseResult.data.timezone,
@@ -58,13 +58,13 @@ export async function locationRoutes(fastify: FastifyInstance) {
       });
 
       // Automatically assign creator as LOCATION_ADMIN
-      memoryDb.createLocationMembership({
+      db().createLocationMembership({
         userId: request.user!.userId,
         locationId: location.id,
         role: LocationRole.LOCATION_ADMIN,
       });
 
-      memoryDb.addAuditLog({
+      db().addAuditLog({
         agencyId,
         locationId: location.id,
         actorId: request.user!.userId,
@@ -85,7 +85,7 @@ export async function locationRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('location:read')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const location = memoryDb.findLocationById(locationId);
+      const location = db().findLocationById(locationId);
       if (!location) {
         throw new NotFoundError(`Location '${locationId}' not found`);
       }
@@ -104,7 +104,7 @@ export async function locationRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const location = memoryDb.findLocationById(locationId);
+      const location = db().findLocationById(locationId);
       if (!location) {
         throw new NotFoundError(`Location '${locationId}' not found`);
       }
@@ -114,7 +114,7 @@ export async function locationRoutes(fastify: FastifyInstance) {
       if (parseResult.data.address) location.address = { ...location.address, ...parseResult.data.address };
       location.updatedAt = new Date().toISOString();
 
-      memoryDb.addAuditLog({
+      db().addAuditLog({
         agencyId: location.agencyId,
         locationId,
         actorId: request.user!.userId,
@@ -135,7 +135,7 @@ export async function locationRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('users:read')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const members = memoryDb.getLocationMembers(locationId);
+      const members = db().getLocationMembers(locationId);
       return sendSuccess(reply, members, 200, { total: members.length });
     }
   );
@@ -151,23 +151,23 @@ export async function locationRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const location = memoryDb.findLocationById(locationId);
+      const location = db().findLocationById(locationId);
       if (!location) {
         throw new NotFoundError(`Location '${locationId}' not found`);
       }
 
-      const userToAssign = memoryDb.findUserById(parseResult.data.userId);
+      const userToAssign = db().findUserById(parseResult.data.userId);
       if (!userToAssign) {
         throw new NotFoundError(`User '${parseResult.data.userId}' not found`);
       }
 
-      const membership = memoryDb.createLocationMembership({
+      const membership = db().createLocationMembership({
         userId: userToAssign.id,
         locationId,
         role: parseResult.data.role,
       });
 
-      memoryDb.addAuditLog({
+      db().addAuditLog({
         agencyId: location.agencyId,
         locationId,
         actorId: request.user!.userId,

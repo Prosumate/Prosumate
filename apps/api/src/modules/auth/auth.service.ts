@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { memoryDb } from '@prosumate/database';
+import { db } from '../../database';
 import { config } from '../../config';
 import { RegisterInput, LoginInput } from '@prosumate/validation';
 import {
@@ -52,7 +52,7 @@ export class AuthService {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + config.jwtRefreshExpiresInDays);
 
-    memoryDb.createSession({
+    db().createSession({
       userId,
       refreshTokenHash,
       expiresAt,
@@ -71,7 +71,7 @@ export class AuthService {
     location: Location;
     tokens: AuthTokens;
   }> {
-    const existing = memoryDb.findUserByEmail(input.email);
+    const existing = db().findUserByEmail(input.email);
     if (existing) {
       throw new ConflictError(`User with email '${input.email}' already exists`);
     }
@@ -79,7 +79,7 @@ export class AuthService {
     const passwordHash = this.hashPassword(input.password);
 
     // 1. Create User
-    const userRecord = memoryDb.createUser({
+    const userRecord = db().createUser({
       email: input.email,
       passwordHash,
       firstName: input.firstName,
@@ -89,26 +89,26 @@ export class AuthService {
     });
 
     // 2. Create Agency
-    const agency = memoryDb.createAgency({
+    const agency = db().createAgency({
       name: input.agencyName,
       billingTier: 'starter',
     });
 
     // 3. Create Initial Location
     const locationName = input.initialLocationName || `${input.agencyName} Main`;
-    const location = memoryDb.createLocation({
+    const location = db().createLocation({
       agencyId: agency.id,
       name: locationName,
     });
 
     // 4. Assign Memberships
-    memoryDb.createAgencyMembership({
+    db().createAgencyMembership({
       userId: userRecord.id,
       agencyId: agency.id,
       role: AgencyRole.OWNER,
     });
 
-    memoryDb.createLocationMembership({
+    db().createLocationMembership({
       userId: userRecord.id,
       locationId: location.id,
       role: LocationRole.LOCATION_ADMIN,
@@ -118,7 +118,7 @@ export class AuthService {
     const tokens = this.generateTokens(userRecord.id, userRecord.email, false, agency.id, location.id);
 
     // 6. Record Audit Logs
-    memoryDb.addAuditLog({
+    db().addAuditLog({
       agencyId: agency.id,
       actorId: userRecord.id,
       actorEmail: userRecord.email,
@@ -129,7 +129,7 @@ export class AuthService {
       ipAddress,
     });
 
-    memoryDb.addAuditLog({
+    db().addAuditLog({
       agencyId: agency.id,
       actorId: userRecord.id,
       actorEmail: userRecord.email,
@@ -140,7 +140,7 @@ export class AuthService {
       ipAddress,
     });
 
-    memoryDb.addAuditLog({
+    db().addAuditLog({
       agencyId: agency.id,
       locationId: location.id,
       actorId: userRecord.id,
@@ -167,7 +167,7 @@ export class AuthService {
     agencies: Agency[];
     locations: Location[];
   }> {
-    const user = memoryDb.findUserByEmail(input.email);
+    const user = db().findUserByEmail(input.email);
     if (!user) {
       throw new UnauthorizedError('Invalid email or password');
     }
@@ -182,14 +182,14 @@ export class AuthService {
     }
 
     // Resolve tenant memberships
-    const agencyMemberships = memoryDb.getUserAgencyMemberships(user.id);
+    const agencyMemberships = db().getUserAgencyMemberships(user.id);
     const agencies = agencyMemberships
-      .map((m) => memoryDb.findAgencyById(m.agencyId))
+      .map((m) => db().findAgencyById(m.agencyId))
       .filter((a): a is Agency => a !== undefined);
 
-    const locationMemberships = memoryDb.getUserLocationMemberships(user.id);
+    const locationMemberships = db().getUserLocationMemberships(user.id);
     const locations = locationMemberships
-      .map((m) => memoryDb.findLocationById(m.locationId))
+      .map((m) => db().findLocationById(m.locationId))
       .filter((l): l is Location => l !== undefined);
 
     const primaryAgency = agencies[0];
@@ -203,7 +203,7 @@ export class AuthService {
       primaryLocation?.id
     );
 
-    memoryDb.addAuditLog({
+    db().addAuditLog({
       agencyId: primaryAgency?.id,
       locationId: primaryLocation?.id,
       actorId: user.id,
@@ -225,21 +225,21 @@ export class AuthService {
 
   async refreshToken(rawRefreshToken: string): Promise<AuthTokens> {
     const refreshTokenHash = crypto.createHash('sha256').update(rawRefreshToken).digest('hex');
-    const session = memoryDb.findSessionByTokenHash(refreshTokenHash);
+    const session = db().findSessionByTokenHash(refreshTokenHash);
 
     if (!session) {
       throw new UnauthorizedError('Invalid or expired refresh token');
     }
 
-    const user = memoryDb.findUserById(session.userId);
+    const user = db().findUserById(session.userId);
     if (!user || user.status !== 'active') {
       throw new UnauthorizedError('User not found or suspended');
     }
 
     // Rotate refresh token
-    memoryDb.revokeSession(session.id);
+    db().revokeSession(session.id);
 
-    const agencyMemberships = memoryDb.getUserAgencyMemberships(user.id);
+    const agencyMemberships = db().getUserAgencyMemberships(user.id);
     const primaryAgencyId = agencyMemberships[0]?.agencyId;
 
     return this.generateTokens(user.id, user.email, user.isPlatformAdmin, primaryAgencyId);
@@ -248,17 +248,17 @@ export class AuthService {
   async logout(userId: string, rawRefreshToken?: string): Promise<void> {
     if (rawRefreshToken) {
       const refreshTokenHash = crypto.createHash('sha256').update(rawRefreshToken).digest('hex');
-      const session = memoryDb.findSessionByTokenHash(refreshTokenHash);
+      const session = db().findSessionByTokenHash(refreshTokenHash);
       if (session) {
-        memoryDb.revokeSession(session.id);
+        db().revokeSession(session.id);
       }
     } else {
-      memoryDb.revokeAllUserSessions(userId);
+      db().revokeAllUserSessions(userId);
     }
 
-    const user = memoryDb.findUserById(userId);
+    const user = db().findUserById(userId);
     if (user) {
-      memoryDb.addAuditLog({
+      db().addAuditLog({
         actorId: user.id,
         actorEmail: user.email,
         action: AuditAction.USER_LOGOUT,
@@ -269,21 +269,21 @@ export class AuthService {
   }
 
   async getCurrentProfile(userId: string) {
-    const user = memoryDb.findUserById(userId);
+    const user = db().findUserById(userId);
     if (!user) {
       throw new NotFoundError('User profile not found');
     }
 
-    const agencyMemberships = memoryDb.getUserAgencyMemberships(user.id).map((m) => {
-      const agency = memoryDb.findAgencyById(m.agencyId);
+    const agencyMemberships = db().getUserAgencyMemberships(user.id).map((m) => {
+      const agency = db().findAgencyById(m.agencyId);
       return {
         agency,
         role: m.role,
       };
     });
 
-    const locationMemberships = memoryDb.getUserLocationMemberships(user.id).map((m) => {
-      const location = memoryDb.findLocationById(m.locationId);
+    const locationMemberships = db().getUserLocationMemberships(user.id).map((m) => {
+      const location = db().findLocationById(m.locationId);
       return {
         location,
         role: m.role,

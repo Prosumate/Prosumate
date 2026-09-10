@@ -47,6 +47,7 @@ import {
   TEMPLATE_CATEGORIES,
   WebsiteTemplate,
   NICHE_IMAGE_PRESETS,
+  getWebsiteTemplateDesign,
 } from '@/lib/website-templates';
 import {
   GHL_SECTION_CATEGORIES,
@@ -388,6 +389,10 @@ export default function FunnelsPage() {
     setTimeout(() => setCopiedSlug(null), 3000);
   };
 
+  const openTemplatePreview = (template: WebsiteTemplate) => {
+    window.open(`/template-preview/${template.id}`, '_blank', 'noopener,noreferrer');
+  };
+
   const handleApplyTemplate = async (template: WebsiteTemplate) => {
     if (!locationId) return;
     setIsDeployingTemplate(true);
@@ -395,13 +400,23 @@ export default function FunnelsPage() {
     try {
       const randSuffix = Math.random().toString(36).substring(2, 6);
       const cleanSlug = `${template.suggestedSlug}-${randSuffix}`;
+      const design = getWebsiteTemplateDesign(template.id);
+      const themedSteps = template.steps.map((step) => ({
+        ...step,
+        blocks: step.blocks.map((block, index) => ({
+          ...block,
+          settings: index === 0
+            ? { ...(block.settings || {}), siteDesign: { ...design, accentColor: template.accentColor }, templateId: template.id }
+            : block.settings,
+        })),
+      }));
 
       const res = await api.createFunnel(locationId, {
         name: template.name,
         slug: cleanSlug,
         description: template.description,
         published: true,
-        steps: template.steps,
+        steps: themedSteps,
       });
 
       if (res.success && res.data) {
@@ -3588,7 +3603,7 @@ export default function FunnelsPage() {
                       {/* Hover Actions Overlay (Rocket.new style) */}
                       <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-all duration-250 flex items-center justify-center gap-3 p-4 z-20">
                         <button
-                          onClick={() => setPreviewTemplate(template)}
+                          onClick={() => openTemplatePreview(template)}
                           className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-white/15 hover:bg-white/25 border border-white/25 text-white backdrop-blur-md transition-all cursor-pointer flex items-center gap-1.5 shadow-xl transform translate-y-2 group-hover:translate-y-0 duration-200"
                         >
                           <Eye className="w-3.5 h-3.5" />
@@ -3643,7 +3658,7 @@ export default function FunnelsPage() {
                       {/* Card Footer Actions */}
                       <div className="pt-3 border-t border-border/60 flex items-center justify-between gap-2">
                         <button
-                          onClick={() => setPreviewTemplate(template)}
+                          onClick={() => openTemplatePreview(template)}
                           className="px-3 py-1.5 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-surface-elevated transition-colors cursor-pointer flex items-center gap-1.5"
                         >
                           <Eye className="w-3.5 h-3.5" />

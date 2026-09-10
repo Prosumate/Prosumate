@@ -1,7 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { ForbiddenError } from '../errors';
 import { Permission, AuditAction } from '@prosumate/types';
-import { memoryDb } from '@prosumate/database';
+import { db } from '../../database';
 
 export function requirePermissions(...requiredPermissions: Permission[]) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
@@ -16,7 +16,7 @@ export function requirePermissions(...requiredPermissions: Permission[]) {
 
     const hasAll = requiredPermissions.every((perm) => user.permissions.includes(perm));
     if (!hasAll) {
-      memoryDb.addAuditLog({
+      db().addAuditLog({
         agencyId: user.activeAgencyId,
         locationId: user.activeLocationId,
         actorId: user.userId,

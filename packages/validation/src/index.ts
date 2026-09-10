@@ -327,79 +327,74 @@ export const inboundWebhookSchema = z.object({
 export type InboundWebhookInput = z.infer<typeof inboundWebhookSchema>;
 
 // ==========================================
-// Automation & Workflow Schemas (Phase 5)
+// Automation & Workflow Schemas (Phase 5+)
 // ==========================================
+
+const workflowTriggerTypes = [
+  'FORM_SUBMITTED',
+  'CONTACT_CREATED',
+  'OPPORTUNITY_STAGE_CHANGED',
+  'APPOINTMENT_BOOKED',
+  'TAG_ADDED',
+  'CUSTOMER_REPLIED',
+  'INVOICE_PAID',
+  'TASK_COMPLETED',
+  'BIRTHDAY',
+  'CUSTOM_EVENT',
+] as const;
+
+const workflowActionTypes = [
+  'SEND_EMAIL',
+  'SEND_SMS',
+  'ADD_TAG',
+  'REMOVE_TAG',
+  'CREATE_TASK',
+  'MOVE_OPPORTUNITY_STAGE',
+  'WAIT_DELAY',
+  'IF_ELSE',
+  'AI_GENERATE',
+  'WEBHOOK',
+  'INTERNAL_NOTIFICATION',
+  'UPDATE_CONTACT_FIELD',
+] as const;
+
+const workflowStepSchema = z.object({
+  name: z.string().trim().min(1),
+  actionType: z.enum(workflowActionTypes),
+  config: z.record(z.unknown()).default({}),
+  order: z.number().int().nonnegative(),
+});
 
 export const createWorkflowSchema = z.object({
   name: z.string().trim().min(2).max(120),
-  description: z.string().trim().max(500).optional(),
+  description: z.string().trim().max(500).optional().nullable(),
   status: z.enum(['draft', 'published', 'paused']).default('published'),
   trigger: z.object({
-    type: z.enum([
-      'FORM_SUBMITTED',
-      'CONTACT_CREATED',
-      'OPPORTUNITY_STAGE_CHANGED',
-      'APPOINTMENT_BOOKED',
-      'TAG_ADDED',
-    ]),
+    type: z.enum(workflowTriggerTypes),
     config: z.record(z.unknown()).default({}),
   }),
   steps: z
-    .array(
-      z.object({
-        name: z.string().trim().min(1),
-        actionType: z.enum([
-          'SEND_EMAIL',
-          'SEND_SMS',
-          'ADD_TAG',
-          'REMOVE_TAG',
-          'CREATE_TASK',
-          'MOVE_OPPORTUNITY_STAGE',
-          'WAIT_DELAY',
-        ]),
-        config: z.record(z.unknown()).default({}),
-        order: z.number().int().nonnegative(),
-      })
-    )
+    .array(workflowStepSchema)
     .min(1, 'Workflow must contain at least one action step'),
+  folderId: z.string().uuid().optional().nullable(),
+  tags: z.array(z.string().trim().min(1).max(50)).max(20).optional(),
 });
 
 export type CreateWorkflowInput = z.infer<typeof createWorkflowSchema>;
 
 export const updateWorkflowSchema = z.object({
   name: z.string().trim().min(2).max(120).optional(),
-  description: z.string().trim().max(500).optional(),
+  description: z.string().trim().max(500).optional().nullable(),
   status: z.enum(['draft', 'published', 'paused']).optional(),
   trigger: z
     .object({
-      type: z.enum([
-        'FORM_SUBMITTED',
-        'CONTACT_CREATED',
-        'OPPORTUNITY_STAGE_CHANGED',
-        'APPOINTMENT_BOOKED',
-        'TAG_ADDED',
-      ]),
+      type: z.enum(workflowTriggerTypes),
       config: z.record(z.unknown()).default({}),
     })
     .optional(),
-  steps: z
-    .array(
-      z.object({
-        name: z.string().trim().min(1),
-        actionType: z.enum([
-          'SEND_EMAIL',
-          'SEND_SMS',
-          'ADD_TAG',
-          'REMOVE_TAG',
-          'CREATE_TASK',
-          'MOVE_OPPORTUNITY_STAGE',
-          'WAIT_DELAY',
-        ]),
-        config: z.record(z.unknown()).default({}),
-        order: z.number().int().nonnegative(),
-      })
-    )
-    .optional(),
+  steps: z.array(workflowStepSchema).min(1, 'Workflow must contain at least one action step').optional(),
+  folderId: z.string().uuid().optional().nullable(),
+  tags: z.array(z.string().trim().min(1).max(50)).max(20).optional(),
 });
 
 export type UpdateWorkflowInput = z.infer<typeof updateWorkflowSchema>;
@@ -410,6 +405,54 @@ export const testRunWorkflowSchema = z.object({
 });
 
 export type TestRunWorkflowInput = z.infer<typeof testRunWorkflowSchema>;
+
+// Workflow Folder schemas
+export const createWorkflowFolderSchema = z.object({
+  name: z.string().trim().min(2).max(80),
+  color: z.string().optional().nullable(),
+  icon: z.string().optional().nullable(),
+});
+
+export type CreateWorkflowFolderInput = z.infer<typeof createWorkflowFolderSchema>;
+
+export const updateWorkflowFolderSchema = z.object({
+  name: z.string().trim().min(2).max(80).optional(),
+  color: z.string().optional().nullable(),
+  icon: z.string().optional().nullable(),
+});
+
+export type UpdateWorkflowFolderInput = z.infer<typeof updateWorkflowFolderSchema>;
+
+// Move workflow to folder
+export const moveWorkflowSchema = z.object({
+  folderId: z.string().uuid().nullable(),
+});
+
+export type MoveWorkflowInput = z.infer<typeof moveWorkflowSchema>;
+
+// Duplicate workflow
+export const duplicateWorkflowSchema = z.object({
+  name: z.string().trim().min(2).max(120).optional(),
+});
+
+export type DuplicateWorkflowInput = z.infer<typeof duplicateWorkflowSchema>;
+
+// Create from template
+export const createFromTemplateSchema = z.object({
+  templateId: z.string().min(1),
+  name: z.string().trim().min(2).max(120).optional(),
+  overrides: z.record(z.unknown()).optional(),
+});
+
+export type CreateFromTemplateInput = z.infer<typeof createFromTemplateSchema>;
+
+// AI workflow generation
+export const generateAiWorkflowSchema = z.object({
+  prompt: z.string().trim().min(10).max(2000),
+  niche: z.string().optional(),
+});
+
+export type GenerateAiWorkflowInput = z.infer<typeof generateAiWorkflowSchema>;
 
 // ==========================================
 // Billing & Subscriptions Schemas (Phase 6)
@@ -609,7 +652,5 @@ export const updateSsoConfigSchema = z.object({
 });
 
 export type UpdateSsoConfigInput = z.infer<typeof updateSsoConfigSchema>;
-
-
 
 

@@ -36,7 +36,7 @@ export interface TemplateStep {
 export interface WebsiteTemplate {
   id: string;
   name: string;
-  category: 'healthcare' | 'legal_finance' | 'home_services' | 'real_estate' | 'agency_b2b' | 'fitness_wellness' | 'automotive';
+  category: 'healthcare' | 'legal_finance' | 'home_services' | 'real_estate' | 'agency_b2b' | 'fitness_wellness' | 'automotive' | 'ecommerce' | 'education' | 'hospitality' | 'professional_services' | 'events' | 'technology' | 'nonprofit' | 'beauty';
   categoryLabel: string;
   badge: string;
   accentColor: string;
@@ -45,6 +45,44 @@ export interface WebsiteTemplate {
   suggestedSlug: string;
   stepsCount: number;
   steps: TemplateStep[];
+}
+
+export interface WebsiteTemplateDesign {
+  layout: 'split' | 'centered' | 'editorial' | 'poster' | 'showcase';
+  surface: string;
+  foreground: string;
+  muted: string;
+  headingFont: 'sans' | 'serif' | 'condensed';
+  sectionStyle: 'cards' | 'lines' | 'floating' | 'minimal';
+}
+
+const TEMPLATE_DESIGNS: Record<string, WebsiteTemplateDesign> = {
+  'template-dental-implants': { layout: 'split', surface: '#f0fdfa', foreground: '#083344', muted: '#155e75', headingFont: 'sans', sectionStyle: 'floating' },
+  'template-medspa-aesthetics': { layout: 'centered', surface: '#fff7ed', foreground: '#431407', muted: '#9a3412', headingFont: 'serif', sectionStyle: 'minimal' },
+  'template-law-firm': { layout: 'editorial', surface: '#fafaf9', foreground: '#1c1917', muted: '#57534e', headingFont: 'serif', sectionStyle: 'lines' },
+  'template-roofing-solar': { layout: 'poster', surface: '#fffbeb', foreground: '#292524', muted: '#92400e', headingFont: 'condensed', sectionStyle: 'cards' },
+  'template-plumbing-hvac': { layout: 'split', surface: '#eff6ff', foreground: '#172554', muted: '#1e40af', headingFont: 'sans', sectionStyle: 'cards' },
+  'template-luxury-real-estate': { layout: 'showcase', surface: '#0c0a09', foreground: '#fafaf9', muted: '#d6d3d1', headingFont: 'serif', sectionStyle: 'minimal' },
+  'template-b2b-growth-agency': { layout: 'poster', surface: '#09090b', foreground: '#fafafa', muted: '#a1a1aa', headingFont: 'sans', sectionStyle: 'floating' },
+  'template-fitness-transformation': { layout: 'editorial', surface: '#18181b', foreground: '#ffffff', muted: '#d4d4d8', headingFont: 'condensed', sectionStyle: 'lines' },
+  'template-cpa-tax-advisory': { layout: 'centered', surface: '#f8fafc', foreground: '#0f172a', muted: '#475569', headingFont: 'serif', sectionStyle: 'lines' },
+  'template-auto-detailing-ppf': { layout: 'showcase', surface: '#030712', foreground: '#f9fafb', muted: '#9ca3af', headingFont: 'condensed', sectionStyle: 'floating' },
+};
+
+export function getWebsiteTemplateDesign(templateId: string): WebsiteTemplateDesign {
+  if (TEMPLATE_DESIGNS[templateId]) return TEMPLATE_DESIGNS[templateId];
+  const hash = templateId.split('').reduce((total, character) => total + character.charCodeAt(0), 0);
+  const layouts: WebsiteTemplateDesign['layout'][] = ['split', 'centered', 'editorial', 'poster', 'showcase'];
+  const headingFonts: WebsiteTemplateDesign['headingFont'][] = ['sans', 'serif', 'condensed'];
+  const sectionStyles: WebsiteTemplateDesign['sectionStyle'][] = ['cards', 'lines', 'floating', 'minimal'];
+  const palettes = [
+    ['#fff7ed', '#431407', '#9a3412'], ['#f0fdf4', '#052e16', '#166534'],
+    ['#eff6ff', '#172554', '#1e40af'], ['#fdf4ff', '#4a044e', '#86198f'],
+    ['#020617', '#f8fafc', '#94a3b8'], ['#18181b', '#fafafa', '#a1a1aa'],
+    ['#f8fafc', '#0f172a', '#475569'], ['#fffbeb', '#422006', '#a16207'],
+  ];
+  const palette = palettes[hash % palettes.length];
+  return { layout: layouts[hash % layouts.length], surface: palette[0], foreground: palette[1], muted: palette[2], headingFont: headingFonts[hash % headingFonts.length], sectionStyle: sectionStyles[hash % sectionStyles.length] };
 }
 
 export interface NicheImagePreset {
@@ -120,9 +158,17 @@ export const TEMPLATE_CATEGORIES = [
   { id: 'agency_b2b', label: 'Digital Agency & B2B' },
   { id: 'fitness_wellness', label: 'Fitness & MedSpa' },
   { id: 'automotive', label: 'Automotive & Detailing' },
+  { id: 'ecommerce', label: 'Ecommerce & Retail' },
+  { id: 'education', label: 'Education & Courses' },
+  { id: 'hospitality', label: 'Hospitality & Travel' },
+  { id: 'professional_services', label: 'Professional Services' },
+  { id: 'events', label: 'Events & Entertainment' },
+  { id: 'technology', label: 'Technology & SaaS' },
+  { id: 'nonprofit', label: 'Nonprofit & Community' },
+  { id: 'beauty', label: 'Beauty & Personal Care' },
 ] as const;
 
-export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
+const CORE_WEBSITE_TEMPLATES: WebsiteTemplate[] = [
   // 1. Healthcare / Dental
   {
     id: 'template-dental-implants',
@@ -1086,4 +1132,135 @@ export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
       },
     ],
   },
+];
+
+type GeneratedNiche = [string, string, WebsiteTemplate['category'], string, string];
+
+const GENERATED_NICHES: GeneratedNiche[] = [
+  ['chiropractic-wellness', 'Chiropractic Wellness Center', 'healthcare', 'Pain-Free Movement Starts Here', 'Book Your Posture Assessment'],
+  ['pediatric-clinic', 'Pediatric Family Clinic', 'healthcare', 'Healthcare That Helps Children Thrive', 'Schedule a Child Wellness Visit'],
+  ['mental-health-therapy', 'Private Therapy Practice', 'healthcare', 'A Safer Space to Feel Like Yourself Again', 'Request a Confidential Consultation'],
+  ['optometry-vision', 'Modern Vision & Optometry', 'healthcare', 'See Life More Clearly', 'Reserve Your Eye Examination'],
+  ['veterinary-care', 'Compassionate Veterinary Care', 'healthcare', 'Exceptional Care for Every Member of Your Family', 'Book a Pet Health Visit'],
+  ['mortgage-broker', 'Independent Mortgage Advisor', 'legal_finance', 'A Smarter Route to the Right Mortgage', 'Get My Free Mortgage Review'],
+  ['estate-planning', 'Estate Planning Attorney', 'legal_finance', 'Protect Everything You Have Built', 'Plan My Family Legacy'],
+  ['bookkeeping-firm', 'Cloud Bookkeeping Studio', 'legal_finance', 'Clean Books. Clear Decisions. More Growth.', 'Request a Financial Health Check'],
+  ['insurance-agency', 'Independent Insurance Agency', 'legal_finance', 'Coverage Designed Around Your Real Life', 'Compare My Coverage'],
+  ['wealth-management', 'Private Wealth Management', 'legal_finance', 'Build Wealth With Purpose and Confidence', 'Schedule a Portfolio Review'],
+  ['landscaping-design', 'Landscape Design & Build', 'home_services', 'Turn Your Backyard Into Your Favorite Destination', 'Request a Landscape Concept'],
+  ['kitchen-remodeling', 'Luxury Kitchen Remodeling', 'home_services', 'The Kitchen You Have Always Imagined', 'Plan My Kitchen Remodel'],
+  ['pest-control', 'Family-Safe Pest Control', 'home_services', 'Pests Out. Peace of Mind In.', 'Get a Same-Day Inspection'],
+  ['cleaning-service', 'Premium Home Cleaning', 'home_services', 'Come Home to Effortless Clean', 'Get My Instant Cleaning Quote'],
+  ['pool-construction', 'Custom Pool Builder', 'home_services', 'Your Private Resort Starts in Your Backyard', 'Design My Dream Pool'],
+  ['property-management', 'Residential Property Management', 'real_estate', 'Better Returns. Fewer Headaches.', 'Get a Free Rental Analysis'],
+  ['first-time-homebuyer', 'First-Time Homebuyer Guide', 'real_estate', 'Your First Home Is Closer Than You Think', 'Start My Homebuyer Plan'],
+  ['commercial-real-estate', 'Commercial Property Advisors', 'real_estate', 'Real Estate Decisions Built for Business Growth', 'Discuss My Property Strategy'],
+  ['vacation-rentals', 'Boutique Vacation Rentals', 'real_estate', 'Stay Somewhere Worth Remembering', 'Explore Available Stays'],
+  ['senior-living', 'Premium Senior Living Community', 'real_estate', 'A Vibrant Next Chapter Starts Here', 'Schedule a Private Tour'],
+  ['branding-studio', 'Boutique Branding Studio', 'agency_b2b', 'Build a Brand People Remember', 'Start My Brand Transformation'],
+  ['recruitment-agency', 'Executive Recruitment Firm', 'professional_services', 'The Right Leaders Change Everything', 'Discuss Your Next Hire'],
+  ['business-consulting', 'Growth Strategy Consultancy', 'professional_services', 'Turn Complex Growth Into a Clear Plan', 'Book a Strategy Session'],
+  ['virtual-assistant', 'Executive Virtual Assistant Agency', 'professional_services', 'Get Your Time and Focus Back', 'Meet Your Ideal Assistant'],
+  ['architecture-firm', 'Modern Architecture Practice', 'professional_services', 'Spaces Designed Around How You Live', 'Discuss Your Project'],
+  ['online-course', 'Signature Online Course Launch', 'education', 'Turn What You Know Into What You Are Known For', 'Join the Masterclass'],
+  ['language-school', 'Immersive Language Academy', 'education', 'Speak With Confidence in the Real World', 'Take a Free Level Test'],
+  ['coding-bootcamp', 'Career Coding Bootcamp', 'education', 'Launch Your Technology Career Faster', 'Apply for the Next Cohort'],
+  ['music-lessons', 'Modern Music Academy', 'education', 'Learn the Music You Actually Love', 'Book a Trial Lesson'],
+  ['tutoring-center', 'Academic Tutoring Center', 'education', 'Confidence Changes Everything at School', 'Get a Learning Assessment'],
+  ['boutique-hotel', 'Boutique City Hotel', 'hospitality', 'Stay in the Heart of Something Special', 'Check Rooms & Rates'],
+  ['destination-resort', 'Luxury Destination Resort', 'hospitality', 'Escape Into the Extraordinary', 'Design Your Stay'],
+  ['travel-agency', 'Bespoke Travel Designer', 'hospitality', 'Journeys Designed Only for You', 'Plan My Dream Trip'],
+  ['restaurant-launch', 'Chef-Led Restaurant', 'hospitality', 'A New Story on Every Plate', 'Reserve Your Table'],
+  ['wedding-venue', 'Garden Wedding Venue', 'events', 'The Perfect Setting for Your Forever', 'Book a Private Venue Tour'],
+  ['event-planner', 'Luxury Event Planning', 'events', 'Unforgettable Events, Effortlessly Delivered', 'Plan My Celebration'],
+  ['conference-summit', 'Industry Conference & Summit', 'events', 'The Ideas and People Shaping Tomorrow', 'Secure My Conference Pass'],
+  ['photography-studio', 'Editorial Photography Studio', 'events', 'Images That Feel Like You', 'View Packages & Availability'],
+  ['subscription-box', 'Curated Subscription Box', 'ecommerce', 'A Little Joy, Delivered Every Month', 'Build My First Box'],
+  ['fashion-boutique', 'Independent Fashion Boutique', 'ecommerce', 'Style That Does Not Follow the Crowd', 'Shop the New Collection'],
+  ['organic-skincare', 'Organic Skincare Collection', 'beauty', 'Skincare Your Skin Understands', 'Find My Daily Ritual'],
+  ['hair-salon', 'Luxury Hair Salon', 'beauty', 'Your Best Hair Starts With the Right Cut', 'Book Your Transformation'],
+  ['barber-studio', 'Modern Barber Studio', 'beauty', 'Sharp Cuts. Timeless Confidence.', 'Reserve Your Chair'],
+  ['mobile-app', 'Consumer Mobile App Launch', 'technology', 'One App. A Better Way to Get It Done.', 'Join the Early Access List'],
+  ['b2b-saas', 'B2B SaaS Product', 'technology', 'Replace Busywork With Better Work', 'Start a Free Product Tour'],
+  ['cybersecurity', 'Managed Cybersecurity Platform', 'technology', 'Secure Every Device, User, and Cloud', 'Get a Security Assessment'],
+  ['ai-startup', 'AI Productivity Platform', 'technology', 'Your Best Work, Accelerated by AI', 'Try the AI Workspace'],
+  ['charity-campaign', 'Nonprofit Giving Campaign', 'nonprofit', 'Together, One Gift Changes a Life', 'Make an Impact Today'],
+  ['community-membership', 'Private Member Community', 'nonprofit', 'Find Your People. Build Something Meaningful.', 'Become a Founding Member'],
+  ['yoga-retreat', 'Transformational Yoga Retreat', 'fitness_wellness', 'Return Home to Yourself', 'Reserve Your Retreat Place'],
+];
+
+const CATEGORY_LABELS: Record<WebsiteTemplate['category'], string> = {
+  healthcare: 'Healthcare & Dental', legal_finance: 'Legal & Financial', home_services: 'Home Services & Trades',
+  real_estate: 'Real Estate & Properties', agency_b2b: 'Digital Agency & B2B', fitness_wellness: 'Fitness & Wellness',
+  automotive: 'Automotive & Detailing', ecommerce: 'Ecommerce & Retail', education: 'Education & Courses',
+  hospitality: 'Hospitality & Travel', professional_services: 'Professional Services', events: 'Events & Entertainment',
+  technology: 'Technology & SaaS', nonprofit: 'Nonprofit & Community', beauty: 'Beauty & Personal Care',
+};
+
+const EXTRA_TEMPLATE_IMAGES = [
+  'https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=1400&q=82',
+  'https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=1400&q=82',
+  'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1400&q=82',
+  'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1400&q=82',
+  'https://images.unsplash.com/photo-1500534314209-a25ddb2bd4297?auto=format&fit=crop&w=1400&q=82',
+  'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1400&q=82',
+  'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1400&q=82',
+  'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1400&q=82',
+  'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=1400&q=82',
+  'https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?auto=format&fit=crop&w=1400&q=82',
+  'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1400&q=82',
+  'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1400&q=82',
+];
+
+const GLOBAL_TEMPLATE_IMAGES = Object.keys(NICHE_IMAGE_PRESETS)
+  .reduce<string[]>((images, key) => images.concat(NICHE_IMAGE_PRESETS[key].map((preset) => preset.url)), [])
+  .concat(EXTRA_TEMPLATE_IMAGES);
+
+function createGeneratedTemplate(niche: GeneratedNiche, index: number): WebsiteTemplate {
+  const [id, name, category, headline, cta] = niche;
+  const pageCount = 2 + (index % 4);
+  const categoryImages = (NICHE_IMAGE_PRESETS[category] || []).map((preset) => preset.url);
+  const uniqueTemplateImage = GLOBAL_TEMPLATE_IMAGES[index % GLOBAL_TEMPLATE_IMAGES.length];
+  const pageImages = [uniqueTemplateImage, ...categoryImages, ...GLOBAL_TEMPLATE_IMAGES.slice(index + 1), ...GLOBAL_TEMPLATE_IMAGES.slice(0, index + 1)];
+  const accentColors = ['#0ea5e9', '#f97316', '#10b981', '#8b5cf6', '#e11d48', '#ca8a04', '#06b6d4', '#ec4899'];
+  const journeyNames = ['Discover', 'Our Approach', 'Solutions', 'Success Stories', 'Get Started'];
+  const steps: TemplateStep[] = Array.from({ length: pageCount }, (_, pageIndex) => {
+    const isFirst = pageIndex === 0;
+    const isLast = pageIndex === pageCount - 1;
+    const slug = isFirst ? 'welcome' : isLast ? 'thank-you' : journeyNames[pageIndex].toLowerCase().replaceAll(' ', '-');
+    const nextSlug = pageIndex + 1 === pageCount - 1 ? 'thank-you' : journeyNames[pageIndex + 1]?.toLowerCase().replaceAll(' ', '-');
+    return {
+      name: isFirst ? `${name} Landing Page` : isLast ? 'Thank You & Next Steps' : journeyNames[pageIndex],
+      slug,
+      type: isFirst ? 'opt_in' : isLast ? 'thank_you' : pageIndex === pageCount - 2 ? 'sales' : 'upsell',
+      nextStepSlug: isLast ? undefined : nextSlug,
+      blocks: isLast ? [{
+        type: 'hero', title: 'You Are One Step Closer', subtitle: `Thank you for choosing ${name}. Our team will contact you with the next steps shortly.`,
+        settings: { badgeText: 'Request Received', buttonText: 'Return to Home', imagePosition: 'background', imageUrl: pageImages[pageIndex % pageImages.length] },
+      }] : [{
+        type: 'hero', title: isFirst ? headline : `${journeyNames[pageIndex]} With ${name}`,
+        subtitle: isFirst ? `A purpose-built experience for people who expect better. Discover why clients trust ${name}.` : `Explore a focused path designed to help you make a confident decision.`,
+        settings: { badgeText: CATEGORY_LABELS[category], buttonText: isFirst ? cta : 'Continue', imageUrl: pageImages[pageIndex % pageImages.length], imagePosition: ['right', 'left', 'background'][index % 3] as 'right' | 'left' | 'background', borderRadius: index % 2 ? 'rounded-3xl' : 'rounded-xl' },
+      }, {
+        type: 'features', title: isFirst ? `Why Clients Choose ${name}` : `What Makes Our ${journeyNames[pageIndex]} Different`, subtitle: 'Clear benefits, thoughtful service, and measurable outcomes.',
+        settings: { items: [
+          { title: 'Personalized Experience', description: 'Every recommendation is shaped around your goals, priorities, and timeline.' },
+          { title: 'Trusted Expertise', description: 'Work with specialists who combine proven methods with attentive service.' },
+          { title: 'Clear Next Steps', description: 'Know exactly what happens next, with transparent guidance at every stage.' },
+        ] },
+      }, ...(pageIndex % 2 ? [{ type: 'testimonials' as const, title: 'Loved by Clients Like You', settings: { items: [{ name: 'Verified Client', quote: `The ${name} team made the entire experience simple and genuinely valuable.`, rating: 5 }] } }] : []), {
+        type: 'cta', title: isFirst ? 'Ready to Take the Next Step?' : `Continue to ${journeyNames[pageIndex + 1] || 'Get Started'}`, subtitle: 'Start today with no pressure and a clear plan.', settings: { buttonText: isFirst ? cta : 'Continue My Journey' },
+      }],
+    };
+  });
+  return {
+    id: `template-${id}`, name, category, categoryLabel: CATEGORY_LABELS[category], badge: category.replaceAll('_', ' '),
+    accentColor: accentColors[index % accentColors.length], thumbnailUrl: uniqueTemplateImage, description: `${pageCount}-page conversion-focused template for ${name.toLowerCase()}.`,
+    suggestedSlug: id, stepsCount: pageCount, steps,
+  };
+}
+
+export const WEBSITE_TEMPLATES: WebsiteTemplate[] = [
+  ...CORE_WEBSITE_TEMPLATES,
+  ...GENERATED_NICHES.map(createGeneratedTemplate),
 ];

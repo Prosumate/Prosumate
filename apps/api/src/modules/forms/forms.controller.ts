@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { memoryDb } from '@prosumate/database';
+import { db } from '../../database';
 import { sendSuccess } from '../../common/response';
 import { authGuard } from '../../common/guards/auth.guard';
 import { tenantGuard } from '../../common/guards/tenant.guard';
@@ -18,11 +18,11 @@ export async function formRoutes(fastify: FastifyInstance) {
     { preHandler: [authGuard, tenantGuard, requirePermissions('forms:read')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const forms = memoryDb.listFormsByLocation(locationId);
+      const forms = db().listFormsByLocation(locationId);
 
       const enriched = forms.map((form) => ({
         ...form,
-        submissionCount: memoryDb.getFormSubmissionCount(form.id),
+        submissionCount: db().getFormSubmissionCount(form.id),
       }));
 
       return sendSuccess(reply, enriched, 200, { total: enriched.length });
@@ -35,7 +35,7 @@ export async function formRoutes(fastify: FastifyInstance) {
     { preHandler: [authGuard, tenantGuard, requirePermissions('forms:manage')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const location = memoryDb.findLocationById(locationId);
+      const location = db().findLocationById(locationId);
       if (!location) throw new NotFoundError(`Location '${locationId}' not found`);
 
       const parseResult = createFormSchema.safeParse(request.body);
@@ -44,7 +44,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       }
 
       try {
-        const form = memoryDb.createForm({
+        const form = db().createForm({
           agencyId: location.agencyId,
           locationId,
           name: parseResult.data.name,
@@ -68,14 +68,14 @@ export async function formRoutes(fastify: FastifyInstance) {
     { preHandler: [authGuard, tenantGuard, requirePermissions('forms:read')] },
     async (request, reply) => {
       const { locationId, formId } = request.params;
-      const form = memoryDb.findFormById(formId);
+      const form = db().findFormById(formId);
       if (!form || form.locationId !== locationId) {
         throw new NotFoundError(`Form '${formId}' not found in this location`);
       }
 
       return sendSuccess(reply, {
         ...form,
-        submissionCount: memoryDb.getFormSubmissionCount(formId),
+        submissionCount: db().getFormSubmissionCount(formId),
       }, 200);
     }
   );
@@ -86,16 +86,16 @@ export async function formRoutes(fastify: FastifyInstance) {
     { preHandler: [authGuard, tenantGuard, requirePermissions('forms:read')] },
     async (request, reply) => {
       const { locationId, formId } = request.params;
-      const form = memoryDb.findFormById(formId);
+      const form = db().findFormById(formId);
       if (!form || form.locationId !== locationId) {
         throw new NotFoundError(`Form '${formId}' not found in this location`);
       }
 
-      const submissions = memoryDb.getFormSubmissions(formId);
+      const submissions = db().getFormSubmissions(formId);
 
       // Enrich with contact info
       const enriched = submissions.map((sub) => {
-        const contact = sub.contactId ? memoryDb.findContactById(sub.contactId) : null;
+        const contact = sub.contactId ? db().findContactById(sub.contactId) : null;
         return {
           ...sub,
           contactName: contact ? `${contact.firstName} ${contact.lastName}` : null,
@@ -117,7 +117,7 @@ export async function publicFormRoutes(fastify: FastifyInstance) {
     '/forms/:formSlug/submit',
     async (request, reply) => {
       const { formSlug } = request.params;
-      const form = memoryDb.findFormBySlug(formSlug);
+      const form = db().findFormBySlug(formSlug);
       if (!form) {
         throw new NotFoundError(`Form '${formSlug}' not found or is inactive`);
       }
@@ -127,7 +127,7 @@ export async function publicFormRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const result = memoryDb.submitForm({
+      const result = db().submitForm({
         formId: form.id,
         locationId: form.locationId,
         submissionData: parseResult.data.data,

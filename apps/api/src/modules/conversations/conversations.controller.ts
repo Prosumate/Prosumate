@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { memoryDb } from '@prosumate/database';
+import { db } from '../../database';
 import { sendSuccess } from '../../common/response';
 import { authGuard } from '../../common/guards/auth.guard';
 import { tenantGuard } from '../../common/guards/tenant.guard';
@@ -26,7 +26,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       const { locationId } = request.params;
       const { channel, search } = request.query;
 
-      const conversations = memoryDb.listConversations(locationId, {
+      const conversations = db().listConversations(locationId, {
         channel,
         search,
       });
@@ -41,7 +41,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('conversations:send')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const location = memoryDb.findLocationById(locationId);
+      const location = db().findLocationById(locationId);
       if (!location) throw new NotFoundError(`Location '${locationId}' not found`);
 
       const parseResult = startConversationSchema.safeParse(request.body);
@@ -50,12 +50,12 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       }
 
       const { contactId, channel, subject, initialMessage } = parseResult.data;
-      const contact = memoryDb.findContactById(contactId);
+      const contact = db().findContactById(contactId);
       if (!contact || contact.locationId !== locationId) {
         throw new NotFoundError(`Contact '${contactId}' not found in this location`);
       }
 
-      const conversation = memoryDb.getOrCreateConversation({
+      const conversation = db().getOrCreateConversation({
         agencyId: location.agencyId,
         locationId,
         contactId,
@@ -77,7 +77,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const message = memoryDb.sendMessage({
+      const message = db().sendMessage({
         conversationId: conversation.id,
         senderId: request.user!.userId,
         senderType: 'user',
@@ -98,7 +98,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('conversations:read')] },
     async (request, reply) => {
       const { locationId, conversationId } = request.params;
-      const conversation = memoryDb.findConversationById(conversationId);
+      const conversation = db().findConversationById(conversationId);
       if (!conversation || conversation.locationId !== locationId) {
         throw new NotFoundError(`Conversation '${conversationId}' not found in this location`);
       }
@@ -113,12 +113,12 @@ export async function conversationRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('conversations:read')] },
     async (request, reply) => {
       const { locationId, conversationId } = request.params;
-      const conversation = memoryDb.findConversationById(conversationId);
+      const conversation = db().findConversationById(conversationId);
       if (!conversation || conversation.locationId !== locationId) {
         throw new NotFoundError(`Conversation '${conversationId}' not found in this location`);
       }
 
-      const messages = memoryDb.listMessages(conversationId);
+      const messages = db().listMessages(conversationId);
       return sendSuccess(reply, messages, 200, { total: messages.length });
     }
   );
@@ -129,7 +129,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('conversations:send')] },
     async (request, reply) => {
       const { locationId, conversationId } = request.params;
-      const conversation = memoryDb.findConversationById(conversationId);
+      const conversation = db().findConversationById(conversationId);
       if (!conversation || conversation.locationId !== locationId) {
         throw new NotFoundError(`Conversation '${conversationId}' not found in this location`);
       }
@@ -144,7 +144,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       const targetSubject = subject || conversation.subject;
 
       // Dispatch through provider
-      const contact = memoryDb.findContactById(conversation.contactId);
+      const contact = db().findContactById(conversation.contactId);
       if (targetChannel === 'email' && contact?.email) {
         await emailProvider.sendEmail({
           to: contact.email,
@@ -158,7 +158,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const message = memoryDb.sendMessage({
+      const message = db().sendMessage({
         conversationId,
         senderId: request.user!.userId,
         senderType: 'user',
@@ -179,12 +179,12 @@ export async function conversationRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('conversations:read')] },
     async (request, reply) => {
       const { locationId, conversationId } = request.params;
-      const conversation = memoryDb.findConversationById(conversationId);
+      const conversation = db().findConversationById(conversationId);
       if (!conversation || conversation.locationId !== locationId) {
         throw new NotFoundError(`Conversation '${conversationId}' not found in this location`);
       }
 
-      const updated = memoryDb.markConversationRead(conversationId);
+      const updated = db().markConversationRead(conversationId);
       return sendSuccess(reply, updated, 200);
     }
   );
@@ -199,7 +199,7 @@ export async function publicConversationRoutes(fastify: FastifyInstance) {
     }
 
     const { from, to, channel, content, subject } = parseResult.data;
-    const result = memoryDb.receiveInboundMessage({
+    const result = db().receiveInboundMessage({
       from,
       to,
       channel,

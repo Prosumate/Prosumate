@@ -8,7 +8,7 @@
     "clean": "rimraf dist",
     "start": "node ./dist/main.js",
     "dev": "tsc -w & node ./dist/main.js",
-    "test": "node --test dist/test/*.spec.js"
+    "test": "tsc -p tsconfig.test.json && node --test dist-test/test/*.spec.js"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.2",

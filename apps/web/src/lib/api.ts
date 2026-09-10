@@ -298,8 +298,43 @@ class ApiClient {
   }
 
   // Automation & Workflows (Phase 5)
+  async getWorkflowFolders(locationId: string) {
+    return this.request<any[]>(`/api/v1/locations/${locationId}/workflow-folders`);
+  }
+
+  async createWorkflowFolder(
+    locationId: string,
+    data: { name: string; color?: string | null; icon?: string | null }
+  ) {
+    return this.request<any>(`/api/v1/locations/${locationId}/workflow-folders`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateWorkflowFolder(
+    locationId: string,
+    folderId: string,
+    data: { name?: string; color?: string | null; icon?: string | null }
+  ) {
+    return this.request<any>(`/api/v1/locations/${locationId}/workflow-folders/${folderId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteWorkflowFolder(locationId: string, folderId: string) {
+    return this.request<any>(`/api/v1/locations/${locationId}/workflow-folders/${folderId}`, {
+      method: 'DELETE',
+    });
+  }
+
   async getWorkflows(locationId: string) {
     return this.request<any[]>(`/api/v1/locations/${locationId}/workflows`);
+  }
+
+  async getWorkflowTrash(locationId: string) {
+    return this.request<any[]>(`/api/v1/locations/${locationId}/workflows/trash`);
   }
 
   async createWorkflow(locationId: string, data: any) {
@@ -323,6 +358,26 @@ class ApiClient {
   async deleteWorkflow(locationId: string, workflowId: string) {
     return this.request<any>(`/api/v1/locations/${locationId}/workflows/${workflowId}`, {
       method: 'DELETE',
+    });
+  }
+
+  async restoreWorkflow(locationId: string, workflowId: string) {
+    return this.request<any>(`/api/v1/locations/${locationId}/workflows/${workflowId}/restore`, {
+      method: 'POST',
+    });
+  }
+
+  async duplicateWorkflow(locationId: string, workflowId: string, data: { name?: string } = {}) {
+    return this.request<any>(`/api/v1/locations/${locationId}/workflows/${workflowId}/duplicate`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async moveWorkflowToFolder(locationId: string, workflowId: string, folderId: string | null) {
+    return this.request<any>(`/api/v1/locations/${locationId}/workflows/${workflowId}/move`, {
+      method: 'PATCH',
+      body: JSON.stringify({ folderId }),
     });
   }
 

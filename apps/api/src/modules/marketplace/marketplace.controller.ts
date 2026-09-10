@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { memoryDb } from '@prosumate/database';
+import { db } from '../../database';
 import { sendSuccess } from '../../common/response';
 import { authGuard } from '../../common/guards/auth.guard';
 import { tenantGuard } from '../../common/guards/tenant.guard';
@@ -11,7 +11,7 @@ export async function marketplaceRoutes(fastify: FastifyInstance) {
 
   // GET /api/v1/marketplace/snapshots - Browse Snapshot catalogue
   fastify.get('/marketplace/snapshots', async (_request, reply) => {
-    const snapshots = memoryDb.listSnapshots();
+    const snapshots = db().listSnapshots();
     return sendSuccess(reply, snapshots, 200, { total: snapshots.length });
   });
 
@@ -21,10 +21,10 @@ export async function marketplaceRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('marketplace:install')] },
     async (request, reply) => {
       const { locationId, snapshotId } = request.params;
-      const location = memoryDb.findLocationById(locationId);
+      const location = db().findLocationById(locationId);
       if (!location) throw new NotFoundError(`Location '${locationId}' not found`);
 
-      const result = memoryDb.installSnapshot(locationId, snapshotId);
+      const result = db().installSnapshot(locationId, snapshotId);
       return sendSuccess(reply, result, 201);
     }
   );

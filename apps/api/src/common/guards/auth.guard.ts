@@ -2,7 +2,7 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { config } from '../../config';
 import { UnauthorizedError } from '../errors';
-import { memoryDb } from '@prosumate/database';
+import { db } from '../../database';
 import { TenantContext, ROLE_PERMISSIONS, AgencyRole, LocationRole } from '@prosumate/types';
 
 declare module 'fastify' {
@@ -31,14 +31,14 @@ export async function authGuard(request: FastifyRequest, reply: FastifyReply) {
       locationId?: string;
     };
 
-    const user = memoryDb.findUserById(payload.sub);
+    const user = db().findUserById(payload.sub);
     if (!user || user.status !== 'active') {
       throw new UnauthorizedError('User account not found or suspended');
     }
 
     // Resolve tenant memberships
-    const agencyMemberships = memoryDb.getUserAgencyMemberships(user.id);
-    const locationMemberships = memoryDb.getUserLocationMemberships(user.id);
+    const agencyMemberships = db().getUserAgencyMemberships(user.id);
+    const locationMemberships = db().getUserLocationMemberships(user.id);
 
     // Determine active agency role
     const activeAgencyId = payload.agencyId || agencyMemberships[0]?.agencyId;

@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { memoryDb } from '@prosumate/database';
+import { db } from '../../database';
 import { sendSuccess } from '../../common/response';
 import { authGuard } from '../../common/guards/auth.guard';
 import { tenantGuard } from '../../common/guards/tenant.guard';
@@ -20,10 +20,10 @@ export async function calendarRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('calendars:read')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const calendars = memoryDb.listCalendarsByLocation(locationId);
+      const calendars = db().listCalendarsByLocation(locationId);
 
       const enriched = calendars.map((cal) => {
-        const appts = memoryDb.listAppointmentsByCalendar(cal.id);
+        const appts = db().listAppointmentsByCalendar(cal.id);
         const upcoming = appts.filter(
           (a) => a.status === 'scheduled' && new Date(a.startTime) >= new Date()
         );
@@ -40,7 +40,7 @@ export async function calendarRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('calendars:manage')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const location = memoryDb.findLocationById(locationId);
+      const location = db().findLocationById(locationId);
       if (!location) throw new NotFoundError(`Location '${locationId}' not found`);
 
       const parseResult = createCalendarSchema.safeParse(request.body);
@@ -49,7 +49,7 @@ export async function calendarRoutes(fastify: FastifyInstance) {
       }
 
       try {
-        const calendar = memoryDb.createCalendar({
+        const calendar = db().createCalendar({
           agencyId: location.agencyId,
           locationId,
           ...parseResult.data,
@@ -68,14 +68,14 @@ export async function calendarRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('calendars:read')] },
     async (request, reply) => {
       const { locationId, calendarId } = request.params;
-      const calendar = memoryDb.findCalendarById(calendarId);
+      const calendar = db().findCalendarById(calendarId);
       if (!calendar || calendar.locationId !== locationId) {
         throw new NotFoundError(`Calendar '${calendarId}' not found in this location`);
       }
 
-      const appointments = memoryDb.listAppointmentsByCalendar(calendarId);
+      const appointments = db().listAppointmentsByCalendar(calendarId);
       const enrichedAppts = appointments.map((a) => {
-        const contact = memoryDb.findContactById(a.contactId);
+        const contact = db().findContactById(a.contactId);
         return {
           ...a,
           contactName: contact ? `${contact.firstName} ${contact.lastName}` : 'Unknown',
@@ -95,13 +95,13 @@ export async function calendarRoutes(fastify: FastifyInstance) {
       const { locationId, calendarId } = request.params;
       const { date } = request.query;
 
-      const calendar = memoryDb.findCalendarById(calendarId);
+      const calendar = db().findCalendarById(calendarId);
       if (!calendar || calendar.locationId !== locationId) {
         throw new NotFoundError(`Calendar '${calendarId}' not found in this location`);
       }
 
       const dateStr = date || new Date().toISOString().split('T')[0]!;
-      const slots = memoryDb.getAvailableSlots(calendarId, dateStr);
+      const slots = db().getAvailableSlots(calendarId, dateStr);
 
       return sendSuccess(reply, { date: dateStr, calendarId, slots, totalSlots: slots.length }, 200);
     }
@@ -113,7 +113,7 @@ export async function calendarRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('calendars:manage')] },
     async (request, reply) => {
       const { locationId, calendarId } = request.params;
-      const calendar = memoryDb.findCalendarById(calendarId);
+      const calendar = db().findCalendarById(calendarId);
       if (!calendar || calendar.locationId !== locationId) {
         throw new NotFoundError(`Calendar '${calendarId}' not found in this location`);
       }
@@ -130,7 +130,7 @@ export async function calendarRoutes(fastify: FastifyInstance) {
         throw new ValidationError('contactId is required to book an appointment');
       }
 
-      const contact = memoryDb.findContactById(contactId);
+      const contact = db().findContactById(contactId);
       if (!contact || contact.locationId !== locationId) {
         throw new NotFoundError(`Contact '${contactId}' not found in this location`);
       }
@@ -140,7 +140,7 @@ export async function calendarRoutes(fastify: FastifyInstance) {
       const end = new Date(start.getTime() + calendar.defaultDurationMinutes * 60 * 1000);
 
       try {
-        const appointment = memoryDb.bookAppointment({
+        const appointment = db().bookAppointment({
           calendarId,
           agencyId: calendar.agencyId,
           locationId,
@@ -166,7 +166,7 @@ export async function calendarRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('calendars:manage')] },
     async (request, reply) => {
       const { locationId, appointmentId } = request.params;
-      const appt = memoryDb.findAppointmentById(appointmentId);
+      const appt = db().findAppointmentById(appointmentId);
       if (!appt || appt.locationId !== locationId) {
         throw new NotFoundError(`Appointment '${appointmentId}' not found in this location`);
       }
@@ -176,7 +176,7 @@ export async function calendarRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const updated = memoryDb.updateAppointmentStatus(
+      const updated = db().updateAppointmentStatus(
         appointmentId,
         parseResult.data.status,
         parseResult.data.notes

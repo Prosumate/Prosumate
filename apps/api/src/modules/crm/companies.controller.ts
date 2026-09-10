@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { memoryDb } from '@prosumate/database';
+import { db } from '../../database';
 import { sendSuccess } from '../../common/response';
 import { authGuard } from '../../common/guards/auth.guard';
 import { tenantGuard } from '../../common/guards/tenant.guard';
@@ -16,7 +16,7 @@ export async function companyRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('crm:companies:read')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const companies = memoryDb.listCompaniesByLocation(locationId);
+      const companies = db().listCompaniesByLocation(locationId);
       return sendSuccess(reply, companies, 200, { total: companies.length });
     }
   );
@@ -27,7 +27,7 @@ export async function companyRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('crm:companies:manage')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const location = memoryDb.findLocationById(locationId);
+      const location = db().findLocationById(locationId);
       if (!location) {
         throw new NotFoundError(`Location '${locationId}' not found`);
       }
@@ -37,7 +37,7 @@ export async function companyRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const company = memoryDb.createCompany({
+      const company = db().createCompany({
         agencyId: location.agencyId,
         locationId,
         name: parseResult.data.name,
@@ -57,13 +57,13 @@ export async function companyRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('crm:companies:read')] },
     async (request, reply) => {
       const { locationId, companyId } = request.params;
-      const company = memoryDb.findCompanyById(companyId);
+      const company = db().findCompanyById(companyId);
       if (!company || company.locationId !== locationId) {
         throw new NotFoundError(`Company '${companyId}' not found in this location`);
       }
 
       // Associated contacts
-      const allContacts = memoryDb.listContactsByLocation(locationId);
+      const allContacts = db().listContactsByLocation(locationId);
       const associatedContacts = allContacts.filter((c) => c.companyId === companyId);
 
       return sendSuccess(reply, {

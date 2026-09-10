@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { memoryDb } from '@prosumate/database';
+import { db } from '../../database';
 import { sendSuccess } from '../../common/response';
 import { authGuard } from '../../common/guards/auth.guard';
 import { requirePermissions } from '../../common/guards/permission.guard';
@@ -17,7 +17,7 @@ export async function auditRoutes(fastify: FastifyInstance) {
 
       // Platform admins can query any agency/location logs
       if (user.isPlatformAdmin) {
-        const logs = memoryDb.getAuditLogs({
+        const logs = db().getAuditLogs({
           agencyId: query.agencyId,
           locationId: query.locationId,
         });
@@ -26,7 +26,7 @@ export async function auditRoutes(fastify: FastifyInstance) {
 
       // Non-platform users are strictly scoped to their active agency
       const agencyId = user.activeAgencyId;
-      const logs = memoryDb.getAuditLogs({
+      const logs = db().getAuditLogs({
         agencyId,
         locationId: query.locationId,
       });

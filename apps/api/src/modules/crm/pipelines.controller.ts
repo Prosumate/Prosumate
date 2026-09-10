@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { memoryDb } from '@prosumate/database';
+import { db } from '../../database';
 import { sendSuccess } from '../../common/response';
 import { authGuard } from '../../common/guards/auth.guard';
 import { tenantGuard } from '../../common/guards/tenant.guard';
@@ -20,7 +20,7 @@ export async function pipelineRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('crm:pipelines:read')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const pipelines = memoryDb.listPipelinesByLocation(locationId);
+      const pipelines = db().listPipelinesByLocation(locationId);
       return sendSuccess(reply, pipelines, 200, { total: pipelines.length });
     }
   );
@@ -31,7 +31,7 @@ export async function pipelineRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('crm:pipelines:manage')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const location = memoryDb.findLocationById(locationId);
+      const location = db().findLocationById(locationId);
       if (!location) {
         throw new NotFoundError(`Location '${locationId}' not found`);
       }
@@ -41,7 +41,7 @@ export async function pipelineRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const pipeline = memoryDb.createPipeline({
+      const pipeline = db().createPipeline({
         agencyId: location.agencyId,
         locationId,
         name: parseResult.data.name,
@@ -58,12 +58,12 @@ export async function pipelineRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('crm:pipelines:read')] },
     async (request, reply) => {
       const { locationId, pipelineId } = request.params;
-      const pipeline = memoryDb.findPipelineById(pipelineId);
+      const pipeline = db().findPipelineById(pipelineId);
       if (!pipeline || pipeline.locationId !== locationId) {
         throw new NotFoundError(`Pipeline '${pipelineId}' not found in this location`);
       }
 
-      const allOpportunities = memoryDb.listOpportunitiesByPipeline(pipelineId);
+      const allOpportunities = db().listOpportunitiesByPipeline(pipelineId);
 
       let pipelineTotalValue = 0;
 
@@ -72,8 +72,8 @@ export async function pipelineRoutes(fastify: FastifyInstance) {
         const stageOpps = allOpportunities
           .filter((o) => o.stageId === stage.id)
           .map((opp) => {
-            const contact = memoryDb.findContactById(opp.contactId);
-            const company = opp.companyId ? memoryDb.findCompanyById(opp.companyId) : undefined;
+            const contact = db().findContactById(opp.contactId);
+            const company = opp.companyId ? db().findCompanyById(opp.companyId) : undefined;
             return {
               ...opp,
               contactName: contact ? `${contact.firstName} ${contact.lastName}` : 'Unknown Contact',
@@ -112,7 +112,7 @@ export async function pipelineRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('crm:pipelines:manage')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const location = memoryDb.findLocationById(locationId);
+      const location = db().findLocationById(locationId);
       if (!location) {
         throw new NotFoundError(`Location '${locationId}' not found`);
       }
@@ -122,12 +122,12 @@ export async function pipelineRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const contact = memoryDb.findContactById(parseResult.data.contactId);
+      const contact = db().findContactById(parseResult.data.contactId);
       if (!contact || contact.locationId !== locationId) {
         throw new NotFoundError(`Contact '${parseResult.data.contactId}' not found in this location`);
       }
 
-      const opportunity = memoryDb.createOpportunity({
+      const opportunity = db().createOpportunity({
         agencyId: location.agencyId,
         locationId,
         pipelineId: parseResult.data.pipelineId,
@@ -152,7 +152,7 @@ export async function pipelineRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('crm:pipelines:manage')] },
     async (request, reply) => {
       const { locationId, opportunityId } = request.params;
-      const opp = memoryDb.findOpportunityById(opportunityId);
+      const opp = db().findOpportunityById(opportunityId);
       if (!opp || opp.locationId !== locationId) {
         throw new NotFoundError(`Opportunity '${opportunityId}' not found in this location`);
       }
@@ -162,7 +162,7 @@ export async function pipelineRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const updated = memoryDb.moveOpportunityStage(
+      const updated = db().moveOpportunityStage(
         opportunityId,
         parseResult.data.stageId,
         request.user!.userId,

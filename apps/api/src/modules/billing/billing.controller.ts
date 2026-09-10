@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { memoryDb } from '@prosumate/database';
+import { db } from '../../database';
 import { sendSuccess } from '../../common/response';
 import { authGuard } from '../../common/guards/auth.guard';
 import { tenantGuard } from '../../common/guards/tenant.guard';
@@ -23,7 +23,7 @@ export async function billingRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('billing:read')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const sub = memoryDb.getLocationSubscription(locationId);
+      const sub = db().getLocationSubscription(locationId);
 
       return sendSuccess(reply, sub || null, 200);
     }
@@ -42,7 +42,7 @@ export async function billingRoutes(fastify: FastifyInstance) {
 
       const { planId, paymentMethodId } = parseResult.data;
       await paymentProvider.createSubscription({ locationId, planId, paymentMethodId });
-      const sub = memoryDb.subscribeLocation(locationId, planId, paymentMethodId);
+      const sub = db().subscribeLocation(locationId, planId, paymentMethodId);
 
       return sendSuccess(reply, sub, 200);
     }
@@ -55,7 +55,7 @@ export async function billingRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { locationId } = request.params;
       await paymentProvider.cancelSubscription(locationId);
-      const sub = memoryDb.cancelLocationSubscription(locationId);
+      const sub = db().cancelLocationSubscription(locationId);
 
       return sendSuccess(reply, sub, 200);
     }
@@ -67,7 +67,7 @@ export async function billingRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('billing:read')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const wallet = memoryDb.getCreditWallet(locationId);
+      const wallet = db().getCreditWallet(locationId);
 
       return sendSuccess(reply, wallet, 200);
     }
@@ -86,7 +86,7 @@ export async function billingRoutes(fastify: FastifyInstance) {
 
       const { amountCents } = parseResult.data;
       await paymentProvider.topUpWallet({ locationId, amountCents });
-      const wallet = memoryDb.topUpCreditWallet(locationId, amountCents);
+      const wallet = db().topUpCreditWallet(locationId, amountCents);
 
       return sendSuccess(reply, wallet, 200);
     }
@@ -103,7 +103,7 @@ export async function billingRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const wallet = memoryDb.updateCreditWalletConfig(locationId, parseResult.data);
+      const wallet = db().updateCreditWalletConfig(locationId, parseResult.data);
 
       return sendSuccess(reply, wallet, 200);
     }
@@ -120,7 +120,7 @@ export async function billingRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const tx = memoryDb.recordUsage(locationId, parseResult.data);
+      const tx = db().recordUsage(locationId, parseResult.data);
 
       return sendSuccess(reply, tx, 201);
     }
@@ -132,7 +132,7 @@ export async function billingRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('billing:read')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const ledger = memoryDb.listUsageTransactions(locationId);
+      const ledger = db().listUsageTransactions(locationId);
 
       return sendSuccess(reply, ledger, 200, { total: ledger.length });
     }
@@ -144,7 +144,7 @@ export async function billingRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('billing:read')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const invoices = memoryDb.listInvoices(locationId);
+      const invoices = db().listInvoices(locationId);
 
       return sendSuccess(reply, invoices, 200, { total: invoices.length });
     }
@@ -155,7 +155,7 @@ export async function billingRoutes(fastify: FastifyInstance) {
     '/:locationId/billing/plans',
     { preHandler: [tenantGuard, requirePermissions('billing:read')] },
     async (request, reply) => {
-      const plans = memoryDb.listSubscriptionPlans();
+      const plans = db().listSubscriptionPlans();
 
       return sendSuccess(reply, plans, 200, { total: plans.length });
     }
@@ -165,7 +165,7 @@ export async function billingRoutes(fastify: FastifyInstance) {
 // Public billing routes (pricing plans)
 export async function publicBillingRoutes(fastify: FastifyInstance) {
   fastify.get('/plans', async (request, reply) => {
-    const plans = memoryDb.listSubscriptionPlans();
+    const plans = db().listSubscriptionPlans();
     return sendSuccess(reply, plans, 200, { total: plans.length });
   });
 }

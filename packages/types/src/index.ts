@@ -757,7 +757,7 @@ export interface Message {
 }
 
 // ==========================================
-// 10. Automation & Workflows (Phase 5)
+// 10. Automation & Workflows (Phase 5+)
 // ==========================================
 
 export enum WorkflowTriggerType {
@@ -766,6 +766,11 @@ export enum WorkflowTriggerType {
   OPPORTUNITY_STAGE_CHANGED = 'OPPORTUNITY_STAGE_CHANGED',
   APPOINTMENT_BOOKED = 'APPOINTMENT_BOOKED',
   TAG_ADDED = 'TAG_ADDED',
+  CUSTOMER_REPLIED = 'CUSTOMER_REPLIED',
+  INVOICE_PAID = 'INVOICE_PAID',
+  TASK_COMPLETED = 'TASK_COMPLETED',
+  BIRTHDAY = 'BIRTHDAY',
+  CUSTOM_EVENT = 'CUSTOM_EVENT',
 }
 
 export enum WorkflowActionType {
@@ -776,6 +781,11 @@ export enum WorkflowActionType {
   CREATE_TASK = 'CREATE_TASK',
   MOVE_OPPORTUNITY_STAGE = 'MOVE_OPPORTUNITY_STAGE',
   WAIT_DELAY = 'WAIT_DELAY',
+  IF_ELSE = 'IF_ELSE',
+  AI_GENERATE = 'AI_GENERATE',
+  WEBHOOK = 'WEBHOOK',
+  INTERNAL_NOTIFICATION = 'INTERNAL_NOTIFICATION',
+  UPDATE_CONTACT_FIELD = 'UPDATE_CONTACT_FIELD',
 }
 
 export enum WorkflowStatus {
@@ -792,14 +802,14 @@ export enum WorkflowExecutionStatus {
 }
 
 export interface WorkflowTrigger {
-  type: WorkflowTriggerType;
+  type: WorkflowTriggerType | string;
   config: Record<string, unknown>;
 }
 
 export interface WorkflowStep {
   id: string;
   name: string;
-  actionType: WorkflowActionType;
+  actionType: WorkflowActionType | string;
   config: Record<string, unknown>;
   order: number;
   nextStepId?: string | null;
@@ -811,19 +821,60 @@ export interface Workflow {
   locationId: string;
   name: string;
   description?: string | null;
-  status: WorkflowStatus;
+  status: WorkflowStatus | string;
   trigger: WorkflowTrigger;
   steps: WorkflowStep[];
   totalRuns: number;
   successfulRuns: number;
+  folderId?: string | null;
+  deletedAt?: string | null;
+  duplicatedFrom?: string | null;
+  createdBy?: string | null;
+  tags?: string[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface WorkflowFolder {
+  id: string;
+  locationId: string;
+  name: string;
+  color?: string | null;
+  icon?: string | null;
+  workflowCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkflowTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  niche: string[];
+  icon: string;
+  color: string;
+  trigger: WorkflowTrigger;
+  steps: Array<{
+    name: string;
+    actionType: string;
+    config: Record<string, unknown>;
+    order: number;
+  }>;
+  popularity: number;
+}
+
+export interface AiWorkflowGenerationResult {
+  workflow: Workflow;
+  confidence: number;
+  matchedPattern?: string | null;
+  suggestions: string[];
 }
 
 export interface WorkflowExecutionStepLog {
   stepId: string;
   stepName: string;
-  actionType: WorkflowActionType;
+  actionType: WorkflowActionType | string;
   status: 'completed' | 'failed' | 'skipped';
   output?: Record<string, unknown>;
   executedAt: string;
@@ -836,7 +887,7 @@ export interface WorkflowExecution {
   workflowName: string;
   locationId: string;
   contactId: string;
-  triggerType: WorkflowTriggerType;
+  triggerType: WorkflowTriggerType | string;
   status: WorkflowExecutionStatus;
   stepsExecuted: WorkflowExecutionStepLog[];
   startedAt: string;

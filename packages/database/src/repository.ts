@@ -62,6 +62,8 @@ export class MemoryDatabase {
     this.messages.clear();
     this.workflows.clear();
     this.workflowExecutions.clear();
+    this.workflowFolders.clear();
+    this.workflowEventDepth = 0;
     this.subscriptionPlans.clear();
     this.locationSubscriptions.clear();
     this.creditWallets.clear();
@@ -439,6 +441,17 @@ export class MemoryDatabase {
       description: `Contact ${contact.firstName} ${contact.lastName} was registered via ${contact.source}`,
     });
 
+    this.triggerEvent(contact.locationId, 'CONTACT_CREATED', {
+      contactId: contact.id,
+      source: contact.source,
+    });
+    for (const tag of contact.tags) {
+      this.triggerEvent(contact.locationId, 'TAG_ADDED', {
+        contactId: contact.id,
+        tag,
+      });
+    }
+
     return contact;
   }
 
@@ -471,6 +484,7 @@ export class MemoryDatabase {
       throw new Error(`Contact '${id}' not found`);
     }
 
+    const previousTags = new Set<string>(contact.tags || []);
     Object.assign(contact, updates);
     contact.updatedAt = new Date().toISOString();
 
@@ -481,6 +495,15 @@ export class MemoryDatabase {
       description: 'Profile details were modified',
       metadata: updates,
     });
+
+    for (const tag of contact.tags || []) {
+      if (!previousTags.has(tag)) {
+        this.triggerEvent(contact.locationId, 'TAG_ADDED', {
+          contactId: contact.id,
+          tag,
+        });
+      }
+    }
 
     return contact;
   }
@@ -723,6 +746,9 @@ export class MemoryDatabase {
       contactId: opp.contactId,
       opportunityId: opp.id,
       stageId: newStageId,
+      stageName: this.findPipelineById(opp.pipelineId)?.stages?.find(
+        (stage: any) => stage.id === newStageId
+      )?.name,
       fromStageId: prevStageId,
     });
 
@@ -890,6 +916,13 @@ export class MemoryDatabase {
       type: 'APPOINTMENT_BOOKED',
       title: 'Appointment Booked',
       description: `${data.title} scheduled for ${new Date(data.startTime).toLocaleString()}`,
+    });
+
+    this.triggerEvent(data.locationId, 'APPOINTMENT_BOOKED', {
+      contactId: data.contactId,
+      appointmentId: appointment.id,
+      calendarId: appointment.calendarId,
+      startTime: appointment.startTime,
     });
 
     return appointment;
@@ -1252,6 +1285,13 @@ export class MemoryDatabase {
         title: `${(data.channel || conv.channel).toUpperCase()} Received`,
         description: data.content.slice(0, 150),
       });
+
+      this.triggerEvent(conv.locationId, 'CUSTOMER_REPLIED', {
+        contactId: conv.contactId,
+        conversationId: conv.id,
+        messageId: message.id,
+        channel: message.channel,
+      });
     }
 
     return message;
@@ -1328,10 +1368,39 @@ export class MemoryDatabase {
   }
 
   // ==========================================
-  // Automation & Workflows (Phase 5)
+  // Automation & Workflows (Phase 5+)
   // ==========================================
   workflows: Map<string, any> = new Map();
   workflowExecutions: Map<string, any[]> = new Map(); // workflowId -> WorkflowExecution[]
+  workflowFolders: Map<string, any> = new Map();
+  private workflowEventDepth = 0;
+
+  private cloneWorkflowValue<T>(value: T): T {
+    return JSON.parse(JSON.stringify(value)) as T;
+  }
+
+  private normalizeWorkflowSteps(steps: any[], preserveIds: boolean) {
+    return steps
+      .map((step, index) => ({ step, index }))
+      .sort((a, b) => (a.step.order ?? a.index) - (b.step.order ?? b.index))
+      .map(({ step }, order) => ({
+        id: preserveIds && step.id ? step.id : randomUUID(),
+        name: step.name,
+        actionType: step.actionType,
+        config: this.cloneWorkflowValue(step.config || {}),
+        order,
+      }));
+  }
+
+  private interpolateWorkflowText(value: unknown, contact: any): string {
+    return String(value ?? '')
+      .replace(/{{contact\.firstName}}/g, contact.firstName || '')
+      .replace(/{{firstName}}/g, contact.firstName || '')
+      .replace(/{{contact\.lastName}}/g, contact.lastName || '')
+      .replace(/{{lastName}}/g, contact.lastName || '')
+      .replace(/{{contact\.email}}/g, contact.email || '')
+      .replace(/{{email}}/g, contact.email || '');
+  }
 
   createWorkflow(data: {
     agencyId: string;
@@ -1346,7 +1415,18 @@ export class MemoryDatabase {
       config?: Record<string, unknown>;
       order: number;
     }>;
+    folderId?: string | null;
+    tags?: string[];
+    duplicatedFrom?: string | null;
+    createdBy?: string | null;
   }) {
+    if (data.folderId) {
+      const folder = this.workflowFolders.get(data.folderId);
+      if (!folder || folder.locationId !== data.locationId) {
+        throw new Error(`Workflow folder '${data.folderId}' not found in this location`);
+      }
+    }
+
     const now = new Date().toISOString();
     const workflow = {
       id: randomUUID(),
@@ -1357,17 +1437,16 @@ export class MemoryDatabase {
       status: data.status || 'published',
       trigger: {
         type: data.trigger.type,
-        config: data.trigger.config || {},
+        config: this.cloneWorkflowValue(data.trigger.config || {}),
       },
-      steps: data.steps.map((s, idx) => ({
-        id: randomUUID(),
-        name: s.name,
-        actionType: s.actionType,
-        config: s.config || {},
-        order: s.order ?? idx,
-      })),
+      steps: this.normalizeWorkflowSteps(data.steps, false),
       totalRuns: 0,
       successfulRuns: 0,
+      folderId: data.folderId || null,
+      deletedAt: null,
+      duplicatedFrom: data.duplicatedFrom || null,
+      createdBy: data.createdBy || null,
+      tags: Array.from(new Set(data.tags || [])),
       createdAt: now,
       updatedAt: now,
     };
@@ -1380,9 +1459,9 @@ export class MemoryDatabase {
     return this.workflows.get(id);
   }
 
-  listWorkflowsByLocation(locationId: string) {
+  listWorkflowsByLocation(locationId: string, includeDeleted = false) {
     return Array.from(this.workflows.values()).filter(
-      (w) => w.locationId === locationId
+      (w) => w.locationId === locationId && (includeDeleted || !w.deletedAt)
     );
   }
 
@@ -1390,10 +1469,12 @@ export class MemoryDatabase {
     id: string,
     updates: Partial<{
       name: string;
-      description: string;
+      description: string | null;
       status: string;
       trigger: any;
       steps: any[];
+      folderId: string | null;
+      tags: string[];
     }>
   ) {
     const workflow = this.workflows.get(id);
@@ -1401,18 +1482,23 @@ export class MemoryDatabase {
       throw new Error(`Workflow '${id}' not found`);
     }
 
+    if (updates.folderId) {
+      const folder = this.workflowFolders.get(updates.folderId);
+      if (!folder || folder.locationId !== workflow.locationId) {
+        throw new Error(`Workflow folder '${updates.folderId}' not found in this location`);
+      }
+    }
+
     if (updates.name !== undefined) workflow.name = updates.name;
     if (updates.description !== undefined) workflow.description = updates.description;
     if (updates.status !== undefined) workflow.status = updates.status;
-    if (updates.trigger !== undefined) workflow.trigger = updates.trigger;
+    if (updates.trigger !== undefined) {
+      workflow.trigger = this.cloneWorkflowValue(updates.trigger);
+    }
+    if (updates.folderId !== undefined) workflow.folderId = updates.folderId;
+    if (updates.tags !== undefined) workflow.tags = Array.from(new Set(updates.tags));
     if (updates.steps !== undefined) {
-      workflow.steps = updates.steps.map((s, idx) => ({
-        id: s.id || randomUUID(),
-        name: s.name,
-        actionType: s.actionType,
-        config: s.config || {},
-        order: s.order ?? idx,
-      }));
+      workflow.steps = this.normalizeWorkflowSteps(updates.steps, true);
     }
     workflow.updatedAt = new Date().toISOString();
 
@@ -1428,12 +1514,12 @@ export class MemoryDatabase {
     payload: { contactId: string; triggerData?: Record<string, unknown> }
   ) {
     const workflow = this.workflows.get(workflowId);
-    if (!workflow) {
+    if (!workflow || workflow.deletedAt) {
       throw new Error(`Workflow '${workflowId}' not found`);
     }
 
     const contact = this.findContactById(payload.contactId);
-    if (!contact) {
+    if (!contact || contact.locationId !== workflow.locationId) {
       throw new Error(`Contact '${payload.contactId}' not found for workflow execution`);
     }
 
@@ -1454,18 +1540,23 @@ export class MemoryDatabase {
 
         switch (step.actionType) {
           case 'SEND_EMAIL': {
+            const contentObject =
+              typeof step.config?.content === 'object' && step.config.content
+                ? step.config.content
+                : null;
             const subject =
               (step.config?.templateSubject as string) ||
               (step.config?.subject as string) ||
+              (contentObject?.subject as string) ||
               'Automated Notification';
-            let content =
+            const content = this.interpolateWorkflowText(
               (step.config?.templateBody as string) ||
-              (step.config?.content as string) ||
-              'Hello, this is an automated message.';
-            content = content
-              .replace(/{{contact\.firstName}}/g, contact.firstName)
-              .replace(/{{firstName}}/g, contact.firstName)
-              .replace(/{{contact\.lastName}}/g, contact.lastName);
+              (typeof step.config?.content === 'string' ? step.config.content : undefined) ||
+              (contentObject?.body as string) ||
+              (step.config?.body as string) ||
+              'Hello, this is an automated message.',
+              contact
+            );
 
             const conv = this.getOrCreateConversation({
               agencyId: workflow.agencyId,
@@ -1489,13 +1580,13 @@ export class MemoryDatabase {
           }
 
           case 'SEND_SMS': {
-            let content =
+            const content = this.interpolateWorkflowText(
               (step.config?.content as string) ||
+              (step.config?.message as string) ||
               (step.config?.templateBody as string) ||
-              'Automated SMS notification.';
-            content = content
-              .replace(/{{contact\.firstName}}/g, contact.firstName)
-              .replace(/{{firstName}}/g, contact.firstName);
+              'Automated SMS notification.',
+              contact
+            );
 
             const conv = this.getOrCreateConversation({
               agencyId: workflow.agencyId,
@@ -1517,7 +1608,10 @@ export class MemoryDatabase {
           }
 
           case 'ADD_TAG': {
-            const tag = (step.config?.tag as string) || 'Automated Tag';
+            const tag =
+              (step.config?.tag as string) ||
+              (Array.isArray(step.config?.tags) ? step.config.tags[0] : undefined);
+            if (!tag) throw new Error('ADD_TAG requires config.tag');
             if (!contact.tags.includes(tag)) {
               contact.tags.push(tag);
               this.addActivityEvent({
@@ -1526,16 +1620,22 @@ export class MemoryDatabase {
                 title: 'Tag Added via Workflow',
                 description: `Workflow "${workflow.name}" added tag: ${tag}`,
               });
+              this.triggerEvent(workflow.locationId, 'TAG_ADDED', {
+                contactId: contact.id,
+                tag,
+                sourceWorkflowId: workflow.id,
+              });
             }
             stepOutput.tagAdded = tag;
             break;
           }
 
           case 'REMOVE_TAG': {
-            const tag = step.config?.tag as string;
-            if (tag) {
-              contact.tags = contact.tags.filter((t: string) => t !== tag);
-            }
+            const tag =
+              (step.config?.tag as string) ||
+              (Array.isArray(step.config?.tags) ? step.config.tags[0] : undefined);
+            if (!tag) throw new Error('REMOVE_TAG requires config.tag');
+            contact.tags = contact.tags.filter((t: string) => t !== tag);
             stepOutput.tagRemoved = tag;
             break;
           }
@@ -1543,6 +1643,7 @@ export class MemoryDatabase {
           case 'CREATE_TASK': {
             const title =
               (step.config?.taskTitle as string) ||
+              (step.config?.title as string) ||
               `Task generated by ${workflow.name}`;
             this.addContactTask({
               contactId: contact.id,
@@ -1554,26 +1655,139 @@ export class MemoryDatabase {
           }
 
           case 'MOVE_OPPORTUNITY_STAGE': {
-            const targetStageId = step.config?.stageId as string;
-            if (targetStageId) {
-              const opp = Array.from(this.opportunities.values()).find(
-                (o) => o.contactId === contact.id
+            const opp = Array.from(this.opportunities.values()).find(
+              (o) => o.contactId === contact.id && o.locationId === workflow.locationId
+            );
+            if (!opp) throw new Error('No opportunity found for contact');
+
+            let targetStageId = step.config?.stageId as string | undefined;
+            if (targetStageId && !this.findPipelineById(opp.pipelineId)?.stages?.some(
+              (stage: any) => stage.id === targetStageId
+            )) {
+              const targetName = targetStageId;
+              targetStageId = this.findPipelineById(opp.pipelineId)?.stages?.find(
+                (stage: any) => stage.name.toLowerCase() === targetName.toLowerCase()
+              )?.id;
+            }
+            if (!targetStageId && step.config?.stage) {
+              const targetName = String(step.config.stage);
+              targetStageId = this.findPipelineById(opp.pipelineId)?.stages?.find(
+                (stage: any) => stage.name.toLowerCase() === targetName.toLowerCase()
+              )?.id;
+            }
+            if (!targetStageId) throw new Error('MOVE_OPPORTUNITY_STAGE requires a valid stageId');
+
+            this.moveOpportunityStage(opp.id, targetStageId);
+            stepOutput.stageMoved = targetStageId;
+            break;
+          }
+
+          case 'WAIT':
+          case 'WAIT_DELAY': {
+            const unit = String(step.config?.unit || 'minutes');
+            const multiplier = unit.startsWith('day')
+              ? 1440
+              : unit.startsWith('hour')
+                ? 60
+                : unit.startsWith('week')
+                  ? 10080
+                  : 1;
+            stepOutput.delayMinutes =
+              Number(step.config?.delayMinutes ?? step.config?.durationMinutes) ||
+              (Number(step.config?.duration) || 0) * multiplier;
+            stepOutput.simulated = true;
+            break;
+          }
+
+          case 'INTERNAL_NOTIFICATION': {
+            const message = this.interpolateWorkflowText(
+              step.config?.message || 'A contact reached this workflow step.',
+              contact
+            );
+            this.addActivityEvent({
+              contactId: contact.id,
+              type: 'INTERNAL_NOTIFICATION',
+              title: 'Workflow Team Notification',
+              description: message,
+              metadata: { workflowId: workflow.id },
+            });
+            stepOutput.notification = message;
+            break;
+          }
+
+          case 'UPDATE_CONTACT_FIELD': {
+            const field = String(step.config?.field || '').trim();
+            if (!field) throw new Error('UPDATE_CONTACT_FIELD requires config.field');
+            if (['id', 'agencyId', 'locationId', 'createdAt', 'deletedAt'].includes(field)) {
+              throw new Error(`Contact field '${field}' cannot be changed by a workflow`);
+            }
+            const value = step.config?.value;
+            const directFields = ['firstName', 'lastName', 'email', 'phone', 'source', 'ownerId', 'status'];
+            if (directFields.includes(field)) {
+              contact[field] = value;
+            } else {
+              contact.customFields = { ...(contact.customFields || {}), [field]: value };
+            }
+            contact.updatedAt = new Date().toISOString();
+            stepOutput.field = field;
+            stepOutput.value = value;
+            break;
+          }
+
+          case 'AI_GENERATE': {
+            const prompt = this.interpolateWorkflowText(
+              step.config?.prompt || 'Write a helpful follow-up for this contact.',
+              contact
+            );
+            const outputField = String(step.config?.outputField || 'aiGeneratedContent');
+            const generated = `AI draft for ${contact.firstName}: ${prompt}`;
+            contact.customFields = {
+              ...(contact.customFields || {}),
+              [outputField]: generated,
+            };
+            contact.updatedAt = new Date().toISOString();
+            stepOutput.outputField = outputField;
+            stepOutput.generated = generated;
+            break;
+          }
+
+          case 'WEBHOOK': {
+            const webhookId = step.config?.webhookId as string | undefined;
+            if (webhookId) {
+              const delivery = this.dispatchWebhook(
+                workflow.locationId,
+                webhookId,
+                String(step.config?.event || 'workflow.step'),
+                { workflowId: workflow.id, contactId: contact.id, triggerData: payload.triggerData || {} }
               );
-              if (opp) {
-                this.moveOpportunityStage(opp.id, targetStageId);
-                stepOutput.stageMoved = targetStageId;
-              }
+              stepOutput.deliveryId = delivery.id;
+            } else {
+              const targetUrl = String(step.config?.url || '').trim();
+              if (!targetUrl) throw new Error('WEBHOOK requires config.webhookId or config.url');
+              stepOutput.targetUrl = targetUrl;
+              stepOutput.method = String(step.config?.method || 'POST').toUpperCase();
+              stepOutput.simulated = true;
             }
             break;
           }
 
-          case 'WAIT_DELAY': {
-            stepOutput.delayMinutes = step.config?.delayMinutes || 0;
+          case 'IF_ELSE': {
+            const field = String(step.config?.field || 'status');
+            const actual = field in contact ? contact[field] : contact.customFields?.[field];
+            const expected = step.config?.value;
+            const operator = String(step.config?.operator || 'equals');
+            const conditionMet = operator === 'not_equals'
+              ? actual !== expected
+              : operator === 'contains'
+                ? String(actual ?? '').includes(String(expected ?? ''))
+                : actual === expected;
+            stepOutput.conditionMet = conditionMet;
+            stepOutput.actual = actual;
             break;
           }
 
           default:
-            stepOutput.unhandled = true;
+            throw new Error(`Unsupported workflow action '${step.actionType}'`);
         }
 
         stepsExecuted.push({
@@ -1629,32 +1843,210 @@ export class MemoryDatabase {
     return execution;
   }
 
+  private workflowTriggerMatches(
+    config: Record<string, unknown> | undefined,
+    payload: Record<string, any>
+  ): boolean {
+    if (!config) return true;
+
+    return Object.entries(config).every(([key, expected]) => {
+      if (key === 'additionalTriggers') return true;
+      if (expected === undefined || expected === null || expected === '' || expected === 'any' || expected === '*') {
+        return true;
+      }
+
+      let actual = payload[key];
+      if (key === 'stage') actual = payload.stageName ?? payload.stage ?? payload.stageId;
+      if (key === 'tag') actual = payload.tag;
+
+      if (Array.isArray(expected)) {
+        return expected.some((value) => String(value).toLowerCase() === String(actual).toLowerCase());
+      }
+      if (key === 'source' && typeof actual === 'string') {
+        return actual.toLowerCase().startsWith(String(expected).toLowerCase());
+      }
+      return String(actual).toLowerCase() === String(expected).toLowerCase();
+    });
+  }
+
   triggerEvent(
     locationId: string,
     triggerType: string,
     payload: { contactId: string; [key: string]: any }
   ) {
-    const matchingWorkflows = Array.from(this.workflows.values()).filter(
-      (w) =>
-        w.locationId === locationId &&
-        w.status === 'published' &&
-        w.trigger.type === triggerType
-    );
+    if (this.workflowEventDepth >= 10) return [];
+
+    const matchingWorkflows = Array.from(this.workflows.values()).filter((workflow) => {
+      if (
+        workflow.locationId !== locationId ||
+        workflow.deletedAt ||
+        workflow.status !== 'published' ||
+        workflow.id === payload.sourceWorkflowId
+      ) return false;
+
+      const primaryMatches = workflow.trigger.type === triggerType &&
+        this.workflowTriggerMatches(workflow.trigger.config, payload);
+      const additionalTriggers = Array.isArray(workflow.trigger.config?.additionalTriggers)
+        ? workflow.trigger.config.additionalTriggers as Array<{ type?: string; config?: Record<string, unknown> }>
+        : [];
+      const additionalMatches = additionalTriggers.some((additionalTrigger) =>
+        additionalTrigger.type === triggerType &&
+        this.workflowTriggerMatches(additionalTrigger.config, payload)
+      );
+      return primaryMatches || additionalMatches;
+    });
 
     const executions: any[] = [];
-    for (const wf of matchingWorkflows) {
-      try {
-        const exec = this.executeWorkflow(wf.id, payload);
-        executions.push(exec);
-      } catch {
-        // Individual workflow failure does not break event chain
+    this.workflowEventDepth += 1;
+    try {
+      for (const wf of matchingWorkflows) {
+        try {
+          const exec = this.executeWorkflow(wf.id, {
+            contactId: payload.contactId,
+            triggerData: payload,
+          });
+          executions.push(exec);
+        } catch {
+          // Individual workflow failure does not break event chain
+        }
       }
+    } finally {
+      this.workflowEventDepth -= 1;
     }
     return executions;
   }
 
   listWorkflowExecutions(workflowId: string) {
     return this.workflowExecutions.get(workflowId) || [];
+  }
+
+  // === Workflow Folder Methods ===
+
+  createWorkflowFolder(data: {
+    locationId: string;
+    name: string;
+    color?: string | null;
+    icon?: string | null;
+  }) {
+    const now = new Date().toISOString();
+    const folder = {
+      id: randomUUID(),
+      locationId: data.locationId,
+      name: data.name,
+      color: data.color || null,
+      icon: data.icon || null,
+      workflowCount: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.workflowFolders.set(folder.id, folder);
+    return folder;
+  }
+
+  listWorkflowFolders(locationId: string) {
+    const folders = Array.from(this.workflowFolders.values()).filter(
+      (f) => f.locationId === locationId
+    );
+    // Compute live workflow counts
+    for (const folder of folders) {
+      folder.workflowCount = Array.from(this.workflows.values()).filter(
+        (w) => w.locationId === locationId && w.folderId === folder.id && !w.deletedAt
+      ).length;
+    }
+    return folders;
+  }
+
+  findWorkflowFolderById(id: string) {
+    return this.workflowFolders.get(id);
+  }
+
+  updateWorkflowFolder(id: string, updates: Partial<{ name: string; color: string | null; icon: string | null }>) {
+    const folder = this.workflowFolders.get(id);
+    if (!folder) throw new Error(`Workflow folder '${id}' not found`);
+    if (updates.name !== undefined) folder.name = updates.name;
+    if (updates.color !== undefined) folder.color = updates.color;
+    if (updates.icon !== undefined) folder.icon = updates.icon;
+    folder.updatedAt = new Date().toISOString();
+    return folder;
+  }
+
+  deleteWorkflowFolder(id: string) {
+    // Unassign all workflows in this folder
+    for (const wf of this.workflows.values()) {
+      if (wf.folderId === id) {
+        wf.folderId = null;
+        wf.updatedAt = new Date().toISOString();
+      }
+    }
+    return this.workflowFolders.delete(id);
+  }
+
+  // === Soft Delete / Restore ===
+
+  softDeleteWorkflow(id: string) {
+    const workflow = this.workflows.get(id);
+    if (!workflow) throw new Error(`Workflow '${id}' not found`);
+    workflow.deletedAt = new Date().toISOString();
+    workflow.status = 'paused';
+    workflow.updatedAt = workflow.deletedAt;
+    return workflow;
+  }
+
+  restoreWorkflow(id: string) {
+    const workflow = this.workflows.get(id);
+    if (!workflow) throw new Error(`Workflow '${id}' not found`);
+    workflow.deletedAt = null;
+    workflow.status = 'draft';
+    workflow.updatedAt = new Date().toISOString();
+    return workflow;
+  }
+
+  listDeletedWorkflows(locationId: string) {
+    return Array.from(this.workflows.values()).filter(
+      (w) => w.locationId === locationId && w.deletedAt
+    );
+  }
+
+  // === Duplicate Workflow ===
+
+  duplicateWorkflow(workflowId: string, overrideName?: string, createdBy?: string | null) {
+    const original = this.workflows.get(workflowId);
+    if (!original) throw new Error(`Workflow '${workflowId}' not found`);
+
+    return this.createWorkflow({
+      agencyId: original.agencyId,
+      locationId: original.locationId,
+      name: overrideName || `${original.name} (Copy)`,
+      description: original.description,
+      status: 'draft',
+      trigger: { ...original.trigger },
+      steps: original.steps.map((s: any, idx: number) => ({
+        name: s.name,
+        actionType: s.actionType,
+        config: { ...s.config },
+        order: idx,
+      })),
+      folderId: original.folderId,
+      tags: [...(original.tags || [])],
+      duplicatedFrom: workflowId,
+      createdBy: createdBy || null,
+    });
+  }
+
+  // === Move Workflow to Folder ===
+
+  moveWorkflowToFolder(workflowId: string, folderId: string | null) {
+    const workflow = this.workflows.get(workflowId);
+    if (!workflow) throw new Error(`Workflow '${workflowId}' not found`);
+    if (folderId) {
+      const folder = this.workflowFolders.get(folderId);
+      if (!folder || folder.locationId !== workflow.locationId) {
+        throw new Error(`Workflow folder '${folderId}' not found in this location`);
+      }
+    }
+    workflow.folderId = folderId;
+    workflow.updatedAt = new Date().toISOString();
+    return workflow;
   }
 
   // ==========================================
@@ -2745,4 +3137,3 @@ export class MemoryDatabase {
 }
 
 export const memoryDb = new MemoryDatabase();
-

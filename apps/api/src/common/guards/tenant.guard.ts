@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { ForbiddenError, NotFoundError } from '../errors';
-import { memoryDb } from '@prosumate/database';
+import { db } from '../../database';
 import { AuditAction, AgencyRole } from '@prosumate/types';
 
 export async function tenantGuard(request: FastifyRequest, reply: FastifyReply) {
@@ -20,10 +20,10 @@ export async function tenantGuard(request: FastifyRequest, reply: FastifyReply) 
 
   // 1. Validate Agency Access if agencyId is in route parameters
   if (requestedAgencyId) {
-    const agencyMembership = memoryDb.getAgencyMembership(user.userId, requestedAgencyId);
+    const agencyMembership = db().getAgencyMembership(user.userId, requestedAgencyId);
     if (!agencyMembership) {
       // Record cross-tenant access violation in audit log
-      memoryDb.addAuditLog({
+      db().addAuditLog({
         agencyId: requestedAgencyId,
         actorId: user.userId,
         actorEmail: user.email,
@@ -44,23 +44,23 @@ export async function tenantGuard(request: FastifyRequest, reply: FastifyReply) 
 
   // 2. Validate Location Access if locationId is in route parameters
   if (requestedLocationId) {
-    const location = memoryDb.findLocationById(requestedLocationId);
+    const location = db().findLocationById(requestedLocationId);
     if (!location || location.status === 'archived') {
       throw new NotFoundError('Location not found or archived');
     }
 
     // Check if user is an Agency Owner or Admin for this location's parent agency
-    const agencyMembership = memoryDb.getAgencyMembership(user.userId, location.agencyId);
+    const agencyMembership = db().getAgencyMembership(user.userId, location.agencyId);
     const isAgencyAuthority =
       agencyMembership &&
       (agencyMembership.role === AgencyRole.OWNER || agencyMembership.role === AgencyRole.ADMIN);
 
     // Check direct location membership
-    const locationMembership = memoryDb.getLocationMembership(user.userId, requestedLocationId);
+    const locationMembership = db().getLocationMembership(user.userId, requestedLocationId);
 
     if (!isAgencyAuthority && !locationMembership) {
       // Record cross-tenant access violation in audit log
-      memoryDb.addAuditLog({
+      db().addAuditLog({
         agencyId: location.agencyId,
         locationId: requestedLocationId,
         actorId: user.userId,

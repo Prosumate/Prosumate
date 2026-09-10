@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { memoryDb } from '@prosumate/database';
+import { db } from '../../database';
 import { sendSuccess } from '../../common/response';
 import { authGuard } from '../../common/guards/auth.guard';
 import { tenantGuard } from '../../common/guards/tenant.guard';
@@ -20,7 +20,7 @@ export async function aiRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('ai:read')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const config = memoryDb.getAiConfig(locationId);
+      const config = db().getAiConfig(locationId);
 
       return sendSuccess(reply, config, 200);
     }
@@ -38,7 +38,7 @@ export async function aiRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const updated = memoryDb.updateAiConfig(locationId, parseResult.data);
+      const updated = db().updateAiConfig(locationId, parseResult.data);
 
       return sendSuccess(reply, updated, 200);
     }
@@ -50,7 +50,7 @@ export async function aiRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('ai:generate')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const location = memoryDb.findLocationById(locationId);
+      const location = db().findLocationById(locationId);
       if (!location) throw new NotFoundError(`Location '${locationId}' not found`);
 
       const parseResult = generateAiTextSchema.safeParse(request.body);
@@ -68,7 +68,7 @@ export async function aiRoutes(fastify: FastifyInstance) {
         context: parseResult.data.context,
       });
 
-      const result = memoryDb.executeAiTask(locationId, {
+      const result = db().executeAiTask(locationId, {
         task: parseResult.data.task,
         prompt: parseResult.data.prompt,
         tone: parseResult.data.tone,
@@ -87,7 +87,7 @@ export async function aiRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('ai:read')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const history = memoryDb.listAiGenerations(locationId);
+      const history = db().listAiGenerations(locationId);
 
       return sendSuccess(reply, history, 200, { total: history.length });
     }

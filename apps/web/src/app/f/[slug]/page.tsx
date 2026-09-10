@@ -65,6 +65,16 @@ export default function PublicFunnelPage() {
   }, [slug]);
 
   const currentStep = funnel?.steps?.[currentStepIndex];
+  const siteDesign = currentStep?.blocks?.[0]?.settings?.siteDesign || {};
+  const siteSurface = siteDesign.surface || '#020617';
+  const siteForeground = siteDesign.foreground || '#f1f5f9';
+  const siteMuted = siteDesign.muted || '#94a3b8';
+  const siteAccent = siteDesign.accentColor || '#4f46e5';
+  const headingClass = siteDesign.headingFont === 'serif'
+    ? 'font-serif'
+    : siteDesign.headingFont === 'condensed'
+      ? 'font-black uppercase tracking-tight'
+      : 'font-sans';
 
   const handleFormSubmit = async (e: React.FormEvent, formSlug: string) => {
     e.preventDefault();
@@ -135,18 +145,18 @@ export default function PublicFunnelPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-primary-500 selection:text-white">
+    <div className="min-h-screen flex flex-col justify-between selection:bg-primary-500 selection:text-white" style={{ backgroundColor: siteSurface, color: siteForeground }}>
       {/* Top Floating Nav */}
-      <header className="border-b border-slate-800/80 bg-slate-900/50 backdrop-blur-md sticky top-0 z-40">
+      <header className="border-b border-current/10 bg-inherit/80 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-primary-600 flex items-center justify-center text-white font-bold text-xs">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-xs" style={{ backgroundColor: siteAccent }}>
               P
             </div>
-            <span className="font-bold text-sm tracking-tight text-white">{funnel.name}</span>
+            <span className="font-bold text-sm tracking-tight">{funnel.name}</span>
           </div>
 
-          <div className="flex items-center gap-2 text-[11px] text-slate-400">
+          <div className="flex items-center gap-2 text-[11px] opacity-60">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
             <span>Verified Secure Enterprise Funnel</span>
           </div>
@@ -154,13 +164,13 @@ export default function PublicFunnelPage() {
       </header>
 
       {/* Main Blocks Stream */}
-      <main className="max-w-4xl mx-auto px-6 py-12 space-y-16 flex-1 w-full">
+      <main className={`${siteDesign.layout === 'poster' || siteDesign.layout === 'showcase' ? 'max-w-7xl' : siteDesign.layout === 'editorial' ? 'max-w-6xl' : 'max-w-5xl'} mx-auto px-6 py-12 space-y-16 flex-1 w-full`}>
         {currentStep.blocks?.map((block: any, bIdx: number) => {
           switch (block.type) {
             case 'hero':
               const heroImgUrl = block.settings?.imageUrl;
-              const isBgHero = block.settings?.imagePosition === 'background' && heroImgUrl;
-              const isLeftImg = block.settings?.imagePosition === 'left';
+              const isBgHero = (block.settings?.imagePosition === 'background' || siteDesign.layout === 'showcase') && heroImgUrl;
+              const isLeftImg = block.settings?.imagePosition === 'left' || siteDesign.layout === 'editorial';
               const heroAspect =
                 block.settings?.aspectRatio === '4:3'
                   ? 'aspect-[4/3]'
@@ -175,7 +185,7 @@ export default function PublicFunnelPage() {
                 return (
                   <div
                     key={block.id || bIdx}
-                    className="relative rounded-3xl overflow-hidden p-8 sm:p-16 text-center space-y-6 shadow-2xl border border-slate-800 my-4"
+                    className={`relative overflow-hidden p-8 sm:p-16 space-y-6 shadow-2xl border border-current/10 my-4 ${siteDesign.layout === 'showcase' ? 'min-h-[680px] flex flex-col justify-end text-left rounded-[2.5rem]' : 'text-center rounded-3xl'}`}
                     style={{
                       backgroundImage: `linear-gradient(to bottom, rgba(2, 6, 23, 0.75), rgba(2, 6, 23, 0.90)), url(${heroImgUrl})`,
                       backgroundSize: 'cover',
@@ -188,7 +198,7 @@ export default function PublicFunnelPage() {
                         <span>{block.settings.badgeText}</span>
                       </div>
                     )}
-                    <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight max-w-3xl mx-auto">
+                    <h1 className={`${headingClass} text-3xl sm:text-6xl font-extrabold tracking-tight text-white leading-tight max-w-3xl ${siteDesign.layout === 'showcase' ? '' : 'mx-auto'}`}>
                       {block.title}
                     </h1>
                     {block.subtitle && (
@@ -240,7 +250,7 @@ export default function PublicFunnelPage() {
 
               if (heroImgUrl) {
                 return (
-                  <div key={block.id || bIdx} className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center pt-6">
+                  <div key={block.id || bIdx} className={`grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center pt-6 ${siteDesign.layout === 'poster' ? 'border-8 border-current p-8' : ''}`}>
                     <div className={`space-y-5 text-left ${isLeftImg ? 'lg:col-span-7 lg:order-2' : 'lg:col-span-7'}`}>
                       {block.settings?.badgeText && (
                         <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-semibold bg-primary-500/10 text-primary-400 border border-primary-500/20 shadow-sm">
@@ -248,11 +258,11 @@ export default function PublicFunnelPage() {
                           <span>{block.settings.badgeText}</span>
                         </div>
                       )}
-                      <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
+                      <h1 className={`${headingClass} ${siteDesign.layout === 'poster' ? 'text-5xl sm:text-7xl' : 'text-3xl sm:text-5xl'} font-extrabold tracking-tight leading-tight`}>
                         {block.title}
                       </h1>
                       {block.subtitle && (
-                        <p className="text-sm sm:text-base text-slate-400 leading-relaxed max-w-2xl">
+                        <p className="text-sm sm:text-base leading-relaxed max-w-2xl" style={{ color: siteMuted }}>
                           {block.subtitle}
                         </p>
                       )}
@@ -271,7 +281,8 @@ export default function PublicFunnelPage() {
                                 if (formEl) formEl.scrollIntoView({ behavior: 'smooth' });
                               }
                             }}
-                            className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary-600 hover:bg-primary-500 text-white font-semibold text-sm shadow-xl shadow-primary-500/25 transition-all cursor-pointer"
+                            className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl text-white font-semibold text-sm shadow-xl transition-all cursor-pointer"
+                            style={{ backgroundColor: siteAccent }}
                           >
                             <span>{block.settings.buttonText}</span>
                             <ArrowRight className="w-4 h-4" />
@@ -317,7 +328,7 @@ export default function PublicFunnelPage() {
                     </div>
                   )}
 
-                  <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
+                      <h1 className={`${headingClass} text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight`}>
                     {block.title}
                   </h1>
 

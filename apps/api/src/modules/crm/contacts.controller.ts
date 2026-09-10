@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { memoryDb } from '@prosumate/database';
+import { db } from '../../database';
 import { sendSuccess, sendError } from '../../common/response';
 import { authGuard } from '../../common/guards/auth.guard';
 import { tenantGuard } from '../../common/guards/tenant.guard';
@@ -27,7 +27,7 @@ export async function contactRoutes(fastify: FastifyInstance) {
       const { locationId } = request.params;
       const { search, status, tag, page = '1', limit = '20' } = request.query;
 
-      const allContacts = memoryDb.listContactsByLocation(locationId, { search, status, tag });
+      const allContacts = db().listContactsByLocation(locationId, { search, status, tag });
       const pageNum = parseInt(page, 10) || 1;
       const limitNum = parseInt(limit, 10) || 20;
       const startIndex = (pageNum - 1) * limitNum;
@@ -35,7 +35,7 @@ export async function contactRoutes(fastify: FastifyInstance) {
 
       // Populate company names
       const enriched = paginated.map((contact) => {
-        const company = contact.companyId ? memoryDb.findCompanyById(contact.companyId) : undefined;
+        const company = contact.companyId ? db().findCompanyById(contact.companyId) : undefined;
         return {
           ...contact,
           companyName: company?.name || null,
@@ -56,7 +56,7 @@ export async function contactRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('crm:contacts:create')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      const location = memoryDb.findLocationById(locationId);
+      const location = db().findLocationById(locationId);
       if (!location) {
         throw new NotFoundError(`Location '${locationId}' not found`);
       }
@@ -67,7 +67,7 @@ export async function contactRoutes(fastify: FastifyInstance) {
       }
 
       try {
-        const contact = memoryDb.createContact({
+        const contact = db().createContact({
           agencyId: location.agencyId,
           locationId,
           firstName: parseResult.data.firstName,
@@ -82,7 +82,7 @@ export async function contactRoutes(fastify: FastifyInstance) {
           status: parseResult.data.status,
         });
 
-        memoryDb.addAuditLog({
+        db().addAuditLog({
           agencyId: location.agencyId,
           locationId,
           actorId: request.user!.userId,
@@ -109,15 +109,15 @@ export async function contactRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('crm:contacts:read')] },
     async (request, reply) => {
       const { locationId, contactId } = request.params;
-      const contact = memoryDb.findContactById(contactId);
+      const contact = db().findContactById(contactId);
       if (!contact || contact.locationId !== locationId) {
         throw new NotFoundError(`Contact '${contactId}' not found in this location`);
       }
 
-      const notes = memoryDb.getContactNotes(contactId);
-      const tasks = memoryDb.getContactTasks(contactId);
-      const timeline = memoryDb.getContactActivityTimeline(contactId);
-      const company = contact.companyId ? memoryDb.findCompanyById(contact.companyId) : null;
+      const notes = db().getContactNotes(contactId);
+      const tasks = db().getContactTasks(contactId);
+      const timeline = db().getContactActivityTimeline(contactId);
+      const company = contact.companyId ? db().findCompanyById(contact.companyId) : null;
 
       return sendSuccess(reply, {
         ...contact,
@@ -135,7 +135,7 @@ export async function contactRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('crm:contacts:update')] },
     async (request, reply) => {
       const { locationId, contactId } = request.params;
-      const contact = memoryDb.findContactById(contactId);
+      const contact = db().findContactById(contactId);
       if (!contact || contact.locationId !== locationId) {
         throw new NotFoundError(`Contact '${contactId}' not found in this location`);
       }
@@ -145,7 +145,7 @@ export async function contactRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const updated = memoryDb.updateContact(contactId, parseResult.data);
+      const updated = db().updateContact(contactId, parseResult.data);
       return sendSuccess(reply, updated, 200);
     }
   );
@@ -156,13 +156,13 @@ export async function contactRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('crm:contacts:delete')] },
     async (request, reply) => {
       const { locationId, contactId } = request.params;
-      const contact = memoryDb.findContactById(contactId);
+      const contact = db().findContactById(contactId);
       if (!contact || contact.locationId !== locationId) {
         throw new NotFoundError(`Contact '${contactId}' not found in this location`);
       }
 
-      memoryDb.deleteContact(contactId);
-      memoryDb.addAuditLog({
+      db().deleteContact(contactId);
+      db().addAuditLog({
         agencyId: contact.agencyId,
         locationId,
         actorId: request.user!.userId,
@@ -182,7 +182,7 @@ export async function contactRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('crm:contacts:update')] },
     async (request, reply) => {
       const { locationId, contactId } = request.params;
-      const contact = memoryDb.findContactById(contactId);
+      const contact = db().findContactById(contactId);
       if (!contact || contact.locationId !== locationId) {
         throw new NotFoundError(`Contact '${contactId}' not found in this location`);
       }
@@ -192,7 +192,7 @@ export async function contactRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const note = memoryDb.addContactNote({
+      const note = db().addContactNote({
         contactId,
         authorId: request.user!.userId,
         authorEmail: request.user!.email,
@@ -209,7 +209,7 @@ export async function contactRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('crm:contacts:update')] },
     async (request, reply) => {
       const { locationId, contactId } = request.params;
-      const contact = memoryDb.findContactById(contactId);
+      const contact = db().findContactById(contactId);
       if (!contact || contact.locationId !== locationId) {
         throw new NotFoundError(`Contact '${contactId}' not found in this location`);
       }
@@ -219,7 +219,7 @@ export async function contactRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const task = memoryDb.addContactTask({
+      const task = db().addContactTask({
         contactId,
         title: parseResult.data.title,
         description: parseResult.data.description,
