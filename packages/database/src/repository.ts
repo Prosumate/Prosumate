@@ -38,6 +38,16 @@ export class MemoryDatabase {
   sessions: Map<string, SessionRecord> = new Map();
   auditLogs: AuditLog[] = [];
 
+  // Internal-service records live behind the repository so providers do not
+  // create isolated shadow stores. A future persistent repository can expose
+  // the same methods without changing provider/controller code.
+  internalEmails: Map<string, any> = new Map();
+  internalSmsMessages: Map<string, any> = new Map();
+  internalVirtualNumbers: Map<string, any> = new Map();
+  internalPaymentMethods: Map<string, any[]> = new Map();
+  internalPaymentTransactions: Map<string, any> = new Map();
+  internalAutomationExecutions: Map<string, any> = new Map();
+
   clear() {
     this.users.clear();
     this.agencies.clear();
@@ -79,6 +89,133 @@ export class MemoryDatabase {
     this.webhooks.clear();
     this.webhookLogs.clear();
     this.ssoConfigs.clear();
+    this.internalEmails.clear();
+    this.internalSmsMessages.clear();
+    this.internalVirtualNumbers.clear();
+    this.internalPaymentMethods.clear();
+    this.internalPaymentTransactions.clear();
+    this.internalAutomationExecutions.clear();
+  }
+
+  // --- Native internal service persistence seam ---
+  saveInternalEmail(record: any) {
+    this.internalEmails.set(record.id, { ...record });
+    return this.internalEmails.get(record.id);
+  }
+
+  updateInternalEmail(id: string, updates: Record<string, unknown>) {
+    const record = this.internalEmails.get(id);
+    if (!record) return null;
+    Object.assign(record, updates);
+    this.internalEmails.set(id, record);
+    return record;
+  }
+
+  findInternalEmailById(id: string) {
+    return this.internalEmails.get(id) || null;
+  }
+
+  listInternalEmails(filters?: { locationId?: string; recipient?: string; status?: string; direction?: string }) {
+    let records = Array.from(this.internalEmails.values());
+    if (filters?.locationId) records = records.filter((record) => record.locationId === filters.locationId);
+    if (filters?.recipient) {
+      const recipient = filters.recipient.toLowerCase();
+      records = records.filter((record) =>
+        Array.isArray(record.to) && record.to.some((value: string) => value.toLowerCase().includes(recipient))
+      );
+    }
+    if (filters?.status) records = records.filter((record) => record.status === filters.status);
+    if (filters?.direction) records = records.filter((record) => record.direction === filters.direction);
+    return records.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  }
+
+  clearInternalEmails() {
+    this.internalEmails.clear();
+  }
+
+  saveInternalSmsMessage(record: any) {
+    this.internalSmsMessages.set(record.id, { ...record });
+    return this.internalSmsMessages.get(record.id);
+  }
+
+  updateInternalSmsMessage(id: string, updates: Record<string, unknown>) {
+    const record = this.internalSmsMessages.get(id);
+    if (!record) return null;
+    Object.assign(record, updates);
+    this.internalSmsMessages.set(id, record);
+    return record;
+  }
+
+  findInternalSmsMessageById(id: string) {
+    return this.internalSmsMessages.get(id) || null;
+  }
+
+  listInternalSmsMessages(filters?: { locationId?: string; phone?: string; direction?: string }) {
+    let records = Array.from(this.internalSmsMessages.values());
+    if (filters?.locationId) records = records.filter((record) => record.locationId === filters.locationId);
+    if (filters?.phone) {
+      const phone = filters.phone.replace(/\D/g, '');
+      records = records.filter((record) =>
+        String(record.to || '').replace(/\D/g, '') === phone ||
+        String(record.from || '').replace(/\D/g, '') === phone
+      );
+    }
+    if (filters?.direction) records = records.filter((record) => record.direction === filters.direction);
+    return records.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  }
+
+  provisionInternalVirtualNumber(record: any) {
+    this.internalVirtualNumbers.set(record.number, { ...record });
+    return this.internalVirtualNumbers.get(record.number);
+  }
+
+  releaseInternalVirtualNumber(number: string) {
+    return this.internalVirtualNumbers.delete(number);
+  }
+
+  listInternalVirtualNumbers(locationId?: string) {
+    const numbers = Array.from(this.internalVirtualNumbers.values());
+    return locationId ? numbers.filter((record) => !record.locationId || record.locationId === locationId) : numbers;
+  }
+
+  saveInternalPaymentMethod(locationId: string, method: any) {
+    const existing = this.internalPaymentMethods.get(locationId) || [];
+    existing.forEach((entry) => { entry.isDefault = false; });
+    existing.unshift({ ...method });
+    this.internalPaymentMethods.set(locationId, existing);
+    return existing[0];
+  }
+
+  listInternalPaymentMethods(locationId: string) {
+    return this.internalPaymentMethods.get(locationId) || [];
+  }
+
+  saveInternalPaymentTransaction(record: any) {
+    this.internalPaymentTransactions.set(record.id, { ...record });
+    return this.internalPaymentTransactions.get(record.id);
+  }
+
+  updateInternalPaymentTransaction(id: string, updates: Record<string, unknown>) {
+    const record = this.internalPaymentTransactions.get(id);
+    if (!record) return null;
+    Object.assign(record, updates);
+    return record;
+  }
+
+  findInternalPaymentTransactionById(id: string) {
+    return this.internalPaymentTransactions.get(id) || null;
+  }
+
+  saveInternalAutomationExecution(record: any) {
+    this.internalAutomationExecutions.set(record.id, { ...record });
+    return this.internalAutomationExecutions.get(record.id);
+  }
+
+  listInternalAutomationExecutions(workflowId?: string, locationId?: string) {
+    let records = Array.from(this.internalAutomationExecutions.values());
+    if (workflowId) records = records.filter((record) => record.workflowId === workflowId);
+    if (locationId) records = records.filter((record) => record.locationId === locationId);
+    return records.sort((a, b) => String(b.startedAt).localeCompare(String(a.startedAt)));
   }
 
   // --- Users ---
@@ -130,6 +267,7 @@ export class MemoryDatabase {
     name: string;
     slug?: string;
     status?: AgencyStatus;
+    id?: string;
     billingTier?: string;
     settings?: Record<string, unknown>;
   }): Agency {
@@ -141,7 +279,7 @@ export class MemoryDatabase {
 
     const now = new Date().toISOString();
     const agency: Agency = {
-      id: randomUUID(),
+      id: data.id || randomUUID(),
       name: data.name,
       slug,
       status: data.status ?? AgencyStatus.ACTIVE,
@@ -164,6 +302,7 @@ export class MemoryDatabase {
 
   // --- Locations ---
   createLocation(data: {
+    id?: string;
     agencyId: string;
     name: string;
     slug?: string;
@@ -179,7 +318,7 @@ export class MemoryDatabase {
     const slug = data.slug || data.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
     const now = new Date().toISOString();
     const location: Location = {
-      id: randomUUID(),
+      id: data.id || randomUUID(),
       agencyId: data.agencyId,
       name: data.name,
       slug,
@@ -1233,6 +1372,7 @@ export class MemoryDatabase {
     content: string;
     subject?: string | null;
     status?: string;
+    metadata?: Record<string, unknown>;
   }) {
     const conv = this.conversations.get(data.conversationId);
     if (!conv) {
@@ -1253,7 +1393,7 @@ export class MemoryDatabase {
       content: data.content,
       subject: data.subject || conv.subject || null,
       status: data.status || (data.direction === 'outbound' ? 'sent' : 'received'),
-      metadata: {},
+      metadata: data.metadata || {},
       createdAt: now,
     };
 
@@ -2125,8 +2265,10 @@ export class MemoryDatabase {
         planId: plan.id,
         planName: plan.name,
         tier: plan.tier,
-        stripeCustomerId: `cus_sim_${randomUUID().slice(0, 8)}`,
-        stripeSubscriptionId: `sub_sim_${randomUUID().slice(0, 8)}`,
+        internalCustomerId: `cus_internal_${randomUUID().slice(0, 8)}`,
+        internalSubscriptionId: `sub_internal_${randomUUID().slice(0, 8)}`,
+        provider: 'internal',
+        settlementMode: 'internal_sandbox',
         status: 'active',
         currentPeriodStart: periodStart,
         currentPeriodEnd: periodEnd,
@@ -2151,12 +2293,13 @@ export class MemoryDatabase {
       id: randomUUID(),
       agencyId: location.agencyId,
       locationId,
-      stripeInvoiceId: `in_sim_${randomUUID().slice(0, 8)}`,
+      internalInvoiceId: `in_internal_${randomUUID().slice(0, 8)}`,
       amountDueCents: plan.priceCents,
       amountPaidCents: plan.priceCents,
       currency: plan.currency,
       status: 'paid',
-      invoicePdfUrl: `https://billing.prosumate.internal/invoices/inv-${randomUUID().slice(0, 6)}.pdf`,
+      settlementMode: 'internal_sandbox',
+      invoicePdfUrl: `/api/v1/locations/${locationId}/billing/invoices`,
       createdAt: periodStart,
       paidAt: periodStart,
     };
@@ -2186,6 +2329,7 @@ export class MemoryDatabase {
         locationId,
         balanceCents: 0,
         currency: 'USD',
+        settlementMode: 'internal_sandbox',
         autoRechargeEnabled: true,
         autoRechargeThresholdCents: 1000, // $10.00
         autoRechargeAmountCents: 5000, // $50.00
@@ -2207,12 +2351,13 @@ export class MemoryDatabase {
         id: randomUUID(),
         agencyId: location.agencyId,
         locationId,
-        stripeInvoiceId: `in_sim_${randomUUID().slice(0, 8)}`,
+        internalInvoiceId: `in_internal_${randomUUID().slice(0, 8)}`,
         amountDueCents: amountCents,
         amountPaidCents: amountCents,
         currency: wallet.currency,
         status: 'paid',
-        invoicePdfUrl: `https://billing.prosumate.internal/invoices/inv-${randomUUID().slice(0, 6)}.pdf`,
+        settlementMode: 'internal_sandbox',
+        invoicePdfUrl: `/api/v1/locations/${locationId}/billing/invoices`,
         createdAt: wallet.updatedAt,
         paidAt: wallet.updatedAt,
       };
@@ -2871,6 +3016,73 @@ export class MemoryDatabase {
     return generation;
   }
 
+  recordAiProviderGeneration(
+    locationId: string,
+    data: {
+      task: string;
+      prompt: string;
+      tone?: string;
+      contactId?: string;
+      channel?: string;
+      context?: any;
+    },
+    providerResult: {
+      result: string;
+      tokensUsed: number;
+      costCents: number;
+      provider: string;
+      sentiment?: string;
+      qualificationScore?: number;
+      intent?: string;
+      recommendedAction?: string;
+      metadata?: Record<string, unknown>;
+    }
+  ) {
+    const location = this.findLocationById(locationId);
+    if (!location) throw new Error(`Location '${locationId}' not found`);
+    const aiConfig = this.getAiConfig(locationId);
+
+    let meteredCostCents = providerResult.costCents;
+    try {
+      const usage = this.recordUsage(locationId, {
+        type: 'ai_tokens',
+        units: providerResult.tokensUsed,
+        description: `Internal AI ${data.task.replace(/_/g, ' ')} (${providerResult.tokensUsed} tokens)`,
+        rebillingMarginPercent: 0,
+      });
+      meteredCostCents = usage.transaction.amountCents;
+    } catch {
+      // Generation history is still retained if usage metering is unavailable.
+    }
+
+    aiConfig.tokensUsedTotal = (aiConfig.tokensUsedTotal || 0) + providerResult.tokensUsed;
+    aiConfig.updatedAt = new Date().toISOString();
+    const generation = {
+      id: randomUUID(),
+      agencyId: location.agencyId,
+      locationId,
+      contactId: data.contactId || null,
+      task: data.task,
+      tone: data.tone || aiConfig.defaultTone || 'professional',
+      channel: data.channel || null,
+      prompt: data.prompt,
+      resultText: providerResult.result,
+      tokensUsed: providerResult.tokensUsed,
+      costCents: meteredCostCents,
+      provider: providerResult.provider,
+      sentiment: providerResult.sentiment || null,
+      qualificationScore: providerResult.qualificationScore ?? null,
+      intent: providerResult.intent || null,
+      recommendedAction: providerResult.recommendedAction || null,
+      metadata: providerResult.metadata || {},
+      createdAt: new Date().toISOString(),
+    };
+    const list = this.aiGenerations.get(locationId) || [];
+    list.unshift(generation);
+    this.aiGenerations.set(locationId, list);
+    return generation;
+  }
+
   listAiGenerations(locationId: string) {
     return this.aiGenerations.get(locationId) || [];
   }
@@ -3059,6 +3271,9 @@ export class MemoryDatabase {
       payload,
       signature,
       responseStatus: 200,
+      deliveryScope: 'internal_log',
+      deliveredExternally: false,
+      recordedAt: new Date().toISOString(),
       deliveredAt: new Date().toISOString(),
     };
 

@@ -461,6 +461,8 @@ export type GenerateAiWorkflowInput = z.infer<typeof generateAiWorkflowSchema>;
 export const createSubscriptionSchema = z.object({
   planId: z.string().min(1, 'Valid planId is required'),
   paymentMethodId: z.string().optional().default('pm_card_visa'),
+  couponCode: z.string().trim().min(1).max(50).optional(),
+  taxRatePercent: z.number().min(0).max(100).optional().default(0),
 });
 
 export type CreateSubscriptionInput = z.infer<typeof createSubscriptionSchema>;
@@ -601,7 +603,7 @@ export type PublicSubmitReviewInput = z.infer<typeof publicSubmitReviewSchema>;
 // ==========================================
 
 export const generateAiTextSchema = z.object({
-  task: z.enum(['suggest_reply', 'generate_copy', 'qualify_lead', 'summarize_conversation']),
+  task: z.enum(['suggest_reply', 'generate_copy', 'qualify_lead', 'summarize_conversation', 'evaluate_branch']),
   prompt: z.string().trim().min(2, 'Prompt must be at least 2 characters').max(4000),
   tone: z.enum(['professional', 'persuasive', 'friendly', 'urgent', 'consultative']).default('professional'),
   contactId: z.string().uuid().optional(),
@@ -652,5 +654,3 @@ export const updateSsoConfigSchema = z.object({
 });
 
 export type UpdateSsoConfigInput = z.infer<typeof updateSsoConfigSchema>;
-
-

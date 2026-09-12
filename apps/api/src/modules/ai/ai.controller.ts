@@ -58,24 +58,19 @@ export async function aiRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      // Invoke AI Provider
-      await aiProvider.generateTask({
+      const requestData = {
         task: parseResult.data.task,
         prompt: parseResult.data.prompt,
         tone: parseResult.data.tone,
         contactId: parseResult.data.contactId,
         channel: parseResult.data.channel,
         context: parseResult.data.context,
-      });
+      };
 
-      const result = db().executeAiTask(locationId, {
-        task: parseResult.data.task,
-        prompt: parseResult.data.prompt,
-        tone: parseResult.data.tone,
-        contactId: parseResult.data.contactId,
-        channel: parseResult.data.channel,
-        context: parseResult.data.context,
-      });
+      // Generate once through the selected provider, then persist that exact
+      // result. This prevents a second, conflicting mock generation.
+      const providerResult = await aiProvider.generateTask(requestData);
+      const result = db().recordAiProviderGeneration(locationId, requestData, providerResult);
 
       return sendSuccess(reply, result, 201);
     }

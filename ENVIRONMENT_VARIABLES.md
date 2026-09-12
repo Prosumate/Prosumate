@@ -1,98 +1,80 @@
-# Prosumate Environment Variables Reference
+# Prosumate Internal Runtime Configuration
 
-This document provides a comprehensive guide to all environment variables supported by the Prosumate SaaS platform during the Free Test Phase and future production deployment.
+Prosumate defaults to self-contained providers for development and internal testing. Those providers use local application storage and deterministic rules; they do not require Resend, Twilio, Stripe, OpenAI, n8n, or Redis.
 
----
+> [!IMPORTANT]
+> “Internal” describes where processing and records live. It does **not** create internet email delivery, carrier SMS service, card-network settlement, or a general-purpose large language model. Email is delivered to Prosumate's local mailbox, SMS runs in a local telephony sandbox, payments settle only in an internal test ledger, and AI output comes from deterministic local rules.
 
-## 1. Core Server Configuration
+## Core server
 
-| Variable | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `NODE_ENV` | `string` | `development` | Runtime environment (`development`, `test`, `production`). |
-| `IS_TEST_ENVIRONMENT` | `boolean` | `true` | When true, renders test environment indicator and enables mock provider fallbacks. |
-| `PORT` | `number` | `4000` | Port on which the Fastify backend API listens. |
-| `HOST` | `string` | `0.0.0.0` | Network interface binding host. |
-| `API_BASE_URL` | `string` | `http://localhost:4000` | Publicly reachable base URL of the API. |
-| `WEB_BASE_URL` | `string` | `http://localhost:3000` | Publicly reachable base URL of the Next.js web application. |
-| `ALLOW_CROSS_ORIGIN` | `string` | `http://localhost:3000` | Allowed CORS origin for frontend requests. |
-| `LOG_LEVEL` | `string` | `debug` | Winston log output level (`debug`, `info`, `warn`, `error`). |
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `NODE_ENV` | `development` | Runtime mode: `development`, `test`, or `production`. |
+| `IS_TEST_ENVIRONMENT` | `true` | Enables internal test behavior and permits the local inbound-message simulator without a secret. |
+| `PORT` | `4000` | API port. |
+| `HOST` | `0.0.0.0` | API bind address. |
+| `API_BASE_URL` | `http://localhost:4000` | API base URL. |
+| `WEB_BASE_URL` | `http://localhost:3000` | Web application base URL. |
+| `ALLOW_CROSS_ORIGIN` | `http://localhost:3000` | Allowed browser origin. |
+| `LOG_LEVEL` | `debug` | Structured log level. |
 
----
+## Repository and in-process engine
 
-## 2. Database & Persistence (Supabase / Local)
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `DATABASE_URL` | empty | Reserved for the optional PostgreSQL adapter. The current API repository accessor remains in-process, so service data is lost on process restart. |
+| `REDIS_URL` | empty | Ignored in internal-only mode. Cache, hashes, atomic counters, Pub/Sub, and retry jobs run in-process. |
 
-| Variable | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `DATABASE_URL` | `string` | *Local Docker URL* | PostgreSQL connection string. For Supabase Free Tier, use the **Transaction Pooler URL** (port `6543`) with `sslmode=require`. |
+The internal service records are stored through the repository seam rather than private provider arrays. This keeps one source of truth inside a process and allows a durable repository implementation to replace it later. It does not by itself provide restart durability or multi-process coordination.
 
-> **Supabase Connection Example:**  
-> `postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?sslmode=require`  
-> *Note:* The transaction pooler is automatically handled with `prepare: false` in the database client.
+## Authentication
 
----
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `JWT_SECRET` | development fallback | HMAC signing secret. Use a random value of at least 32 characters outside local development. |
+| `JWT_ACCESS_EXPIRES_IN` | `15m` | Access-token lifetime. |
+| `JWT_REFRESH_EXPIRES_IN` | `7d` | Refresh-token lifetime. |
+| `PASSWORD_SALT_ROUNDS` | `12` | Bcrypt work factor. |
+| `INTERNAL_INBOUND_SECRET` | empty | Required by the inbound-message route when `IS_TEST_ENVIRONMENT=false`. |
 
-## 3. Caching & Queues (Upstash / Memory)
+## Internal providers
 
-| Variable | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `REDIS_URL` | `string` | *(Empty)* | Redis connection string (e.g. Upstash Redis free tier: `rediss://default:...@...upstash.io:6379`). When left blank, the platform automatically uses a zero-dependency in-memory cache. |
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `EMAIL_PROVIDER` | `internal` | Uses the repository-backed local mailbox, merge tags, deliverability checks, previews, and opened/clicked lifecycle receipts. |
+| `INTERNAL_FROM_EMAIL` | `Prosumate <system@prosumate.local>` | Local mailbox sender identity. |
+| `SMS_PROVIDER` | `internal` | Uses the repository-backed telephony sandbox, virtual test numbers, two-way threads, GSM-7/UCS-2 segmentation, and STOP/START/UNSTOP/HELP/INFO handling. |
+| `INTERNAL_VIRTUAL_NUMBER` | `+1 (555) 010-2000` | Non-routable test number used inside the sandbox. |
+| `PAYMENT_PROVIDER` | `internal` | Uses the internal billing sandbox with PAN checksum/expiry/CVC validation, auth/capture ledger records, subscriptions, coupons, taxes, invoices, and wallet credits. No real funds move. |
+| `AI_PROVIDER` | `internal` | Uses deterministic local BANT, sentiment/intent, reply, 15-niche copy, and branch-evaluation rules. |
+| `AUTOMATION_ENGINE` | `internal` | Uses the existing repository-backed workflow engine and its event triggers. |
 
----
+## Optional legacy adapters
 
-## 4. Authentication & Security
+These variables are retained for backward compatibility only. They are empty in the internal configuration. Setting a provider to an external adapter explicitly opts the deployment into that third party.
 
-| Variable | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `JWT_SECRET` | `string` | *(Dev secret)* | HMAC-SHA256 secret key for signing user session tokens (min 32 characters). |
-| `JWT_ACCESS_EXPIRES_IN` | `string` | `15m` | Expiration window for access tokens (`15m`, `1h`). |
-| `JWT_REFRESH_EXPIRES_IN` | `string` | `7d` | Expiration window for refresh tokens. |
-| `PASSWORD_SALT_ROUNDS` | `number` | `12` | Bcrypt hashing rounds. |
+| Variable | Used only when |
+| :--- | :--- |
+| `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | `EMAIL_PROVIDER=resend` |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | `SMS_PROVIDER=twilio` |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Reserved; no active Stripe payment provider is selected by default. |
+| `OPENAI_API_KEY` | Reserved; no active OpenAI provider is selected by default. |
+| `N8N_BASE_URL`, `N8N_WEBHOOK_URL` | Reserved legacy configuration; native workflows do not use n8n. |
 
----
+## Diagnostic and inspection endpoints
 
-## 5. Communications & Free/Test Providers
+| Endpoint | Access | Purpose |
+| :--- | :--- | :--- |
+| `GET /health` | Public | Minimal process and architecture status; no tenant data. |
+| `GET /ready` | Public | Active provider names and in-process repository mode. |
+| `GET /api/v1/internal/services` | Platform administrator | Aggregate internal-service diagnostics; no message bodies. |
+| `GET /api/v1/locations/:locationId/internal/emails` | Authenticated tenant with conversation-read permission | Location-scoped internal outbox. |
+| `GET /api/v1/locations/:locationId/internal/emails/:id/preview` | Same tenant scope | Sandboxed HTML preview with a restrictive content-security policy. |
+| `GET /api/v1/locations/:locationId/internal/invoices/:id/download` | Authenticated tenant with billing-read permission | Location-scoped printable sandbox invoice. |
+| `GET /api/v1/locations/:locationId/internal/virtual-numbers` | Authenticated tenant with conversation-read permission | Location-scoped virtual test numbers. |
 
-### 5.1 Email Provider
-| Variable | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `EMAIL_PROVIDER` | `string` | `mock` | Active provider: `mock` (simulated, $0) or `resend` (free tier). |
-| `RESEND_API_KEY` | `string` | *(Empty)* | API key from [Resend](https://resend.com) (free tier allows 3,000 emails/mo). Required if `EMAIL_PROVIDER=resend`. |
-| `RESEND_FROM_EMAIL`| `string` | `Prosumate <onboarding@resend.dev>` | Verified sender address or default test domain. |
+## Frontend
 
-### 5.2 SMS Provider
-| Variable | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `SMS_PROVIDER` | `string` | `mock` | Active provider: `mock` (simulated, $0) or `twilio` (production). In mock mode, SMS records are stored and marked `[SIMULATED]`. |
-| `TWILIO_ACCOUNT_SID`| `string` | *(Empty)* | Twilio Account SID (future production use). |
-| `TWILIO_AUTH_TOKEN` | `string` | *(Empty)* | Twilio Auth Token (future production use). |
-| `TWILIO_FROM_NUMBER`| `string` | *(Empty)* | Twilio phone number in E.164 format. |
-
-### 5.3 Billing & Payment Provider
-| Variable | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `PAYMENT_PROVIDER` | `string` | `mock` | Active provider: `mock` ($0 charged, simulated subscriptions and wallet credits) or `stripe` (production). |
-| `STRIPE_SECRET_KEY` | `string` | *(Empty)* | Stripe Secret API Key (future production use). |
-| `STRIPE_WEBHOOK_SECRET`| `string` | *(Empty)* | Stripe Webhook Signing Secret. |
-
-### 5.4 AI Assistant Provider
-| Variable | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `AI_PROVIDER` | `string` | `mock` | Active provider: `mock` (deterministic structured lead qualification & copy, $0 cost) or `openai` (production). |
-| `OPENAI_API_KEY` | `string` | *(Empty)* | OpenAI API Key (future production use). |
-
----
-
-## 6. External Automation & n8n
-
-| Variable | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `N8N_BASE_URL` | `string` | `http://localhost:5678` | URL of self-hosted n8n instance. |
-| `N8N_WEBHOOK_URL` | `string` | *(Empty)* | Webhook endpoint on n8n to receive Prosumate events. |
-
----
-
-## 7. Frontend Client (`apps/web`)
-
-| Variable | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `NEXT_PUBLIC_API_URL` | `string` | `http://localhost:4000` | Browser-accessible base URL of the backend API. **Never place private secret keys in `NEXT_PUBLIC_*` variables.** |
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:4000` | Browser-accessible API URL. Never place secrets in any `NEXT_PUBLIC_*` variable. |

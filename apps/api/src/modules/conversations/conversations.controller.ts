@@ -9,8 +9,9 @@ import {
   sendMessageSchema,
   inboundWebhookSchema,
 } from '@prosumate/validation';
-import { ValidationError, NotFoundError } from '../../common/errors';
-import { emailProvider, smsProvider } from '../../providers';
+import { AppError, ValidationError, NotFoundError, UnauthorizedError } from '../../common/errors';
+import { emailProvider, smsProvider, InternalEmailProvider, InternalSmsProvider } from '../../providers';
+import { config } from '../../config';
 
 export async function conversationRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', authGuard);
@@ -63,18 +64,30 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         subject,
       });
 
-      // Dispatch through appropriate provider
+      // Dispatch through the configured provider and persist the provider's
+      // actual outcome instead of claiming delivery unconditionally.
+      let providerResult;
       if (channel === 'email' && contact.email) {
-        await emailProvider.sendEmail({
+        providerResult = await emailProvider.sendEmail({
           to: contact.email,
           subject: subject || 'Message from Prosumate',
           text: initialMessage,
+          locationId,
+          mergeData: { contact, location },
+          metadata: { conversationId: conversation.id, contactId: contact.id },
         });
       } else if (channel === 'sms' && contact.phone) {
-        await smsProvider.sendSms({
+        providerResult = await smsProvider.sendSms({
           to: contact.phone,
           body: initialMessage,
+          locationId,
+          metadata: { conversationId: conversation.id, contactId: contact.id },
         });
+      } else {
+        throw new ValidationError(`Contact has no ${channel} destination`);
+      }
+      if (!providerResult.success) {
+        throw new AppError(providerResult.error || 'Message could not be accepted by the internal provider', 422, 'MESSAGE_REJECTED');
       }
 
       const message = db().sendMessage({
@@ -85,7 +98,12 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         direction: 'outbound',
         content: initialMessage,
         subject,
-        status: 'delivered',
+        status: providerResult.status,
+        metadata: {
+          provider: providerResult.provider,
+          providerMessageId: providerResult.messageId,
+          deliveryScope: providerResult.deliveryScope,
+        },
       });
 
       return sendSuccess(reply, { conversation, message }, 201);
@@ -143,19 +161,30 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       const targetChannel = channel || conversation.channel;
       const targetSubject = subject || conversation.subject;
 
-      // Dispatch through provider
+      // Dispatch through provider and retain its real local/external status.
       const contact = db().findContactById(conversation.contactId);
+      let providerResult;
       if (targetChannel === 'email' && contact?.email) {
-        await emailProvider.sendEmail({
+        providerResult = await emailProvider.sendEmail({
           to: contact.email,
           subject: targetSubject || 'Message from Prosumate',
           text: content,
+          locationId,
+          mergeData: { contact, location: db().findLocationById(locationId) || {} },
+          metadata: { conversationId, contactId: contact.id },
         });
       } else if (targetChannel === 'sms' && contact?.phone) {
-        await smsProvider.sendSms({
+        providerResult = await smsProvider.sendSms({
           to: contact.phone,
           body: content,
+          locationId,
+          metadata: { conversationId, contactId: contact.id },
         });
+      } else {
+        throw new ValidationError(`Contact has no ${targetChannel} destination`);
+      }
+      if (!providerResult.success) {
+        throw new AppError(providerResult.error || 'Message could not be accepted by the internal provider', 422, 'MESSAGE_REJECTED');
       }
 
       const message = db().sendMessage({
@@ -166,7 +195,12 @@ export async function conversationRoutes(fastify: FastifyInstance) {
         direction: 'outbound',
         content,
         subject: targetSubject,
-        status: 'delivered',
+        status: providerResult.status,
+        metadata: {
+          provider: providerResult.provider,
+          providerMessageId: providerResult.messageId,
+          deliveryScope: providerResult.deliveryScope,
+        },
       });
 
       return sendSuccess(reply, message, 201);
@@ -193,12 +227,23 @@ export async function conversationRoutes(fastify: FastifyInstance) {
 // Public conversation routes (inbound webhook receiver)
 export async function publicConversationRoutes(fastify: FastifyInstance) {
   fastify.post('/conversations/inbound', async (request, reply) => {
+    if (!config.isTestEnvironment) {
+      const suppliedSecret = request.headers['x-internal-inbound-secret'];
+      if (!config.internalInboundSecret || suppliedSecret !== config.internalInboundSecret) {
+        throw new UnauthorizedError('A valid internal inbound secret is required');
+      }
+    }
     const parseResult = inboundWebhookSchema.safeParse(request.body);
     if (!parseResult.success) {
       throw new ValidationError('Validation failed', parseResult.error.flatten());
     }
 
     const { from, to, channel, content, subject } = parseResult.data;
+    if (channel === 'sms' && smsProvider instanceof InternalSmsProvider) {
+      smsProvider.receiveInboundSms(from, content, to);
+    } else if (channel === 'email' && emailProvider instanceof InternalEmailProvider) {
+      emailProvider.receiveInboundEmail({ from, to, subject, text: content });
+    }
     const result = db().receiveInboundMessage({
       from,
       to,

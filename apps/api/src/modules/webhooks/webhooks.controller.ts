@@ -74,8 +74,9 @@ export async function webhookRoutes(fastify: FastifyInstance) {
         },
       };
 
-      // Dispatch genuine HTTP request if configured
-      if (webhook.targetUrl && !webhook.targetUrl.includes('api.hubspot.com')) {
+      // Record and sign the callback envelope. Internal-only mode performs no
+      // outbound network request.
+      if (webhook.targetUrl) {
         await sendWebhookHttp(webhook.targetUrl, webhook.secretKey, 'test.ping', testPayload);
       }
 

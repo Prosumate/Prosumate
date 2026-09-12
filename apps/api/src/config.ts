@@ -17,19 +17,25 @@ export const config = {
   logLevel: process.env.LOG_LEVEL || 'debug',
   allowCrossOrigin: process.env.ALLOW_CROSS_ORIGIN || 'http://localhost:3000',
 
-  // Providers configuration
-  emailProvider: process.env.EMAIL_PROVIDER || 'mock',
+  // Internal providers are the safe, self-contained default. Optional legacy
+  // adapters remain available only when explicitly configured.
+  emailProvider: process.env.EMAIL_PROVIDER || 'internal',
+  internalFromEmail: process.env.INTERNAL_FROM_EMAIL || 'Prosumate <system@prosumate.local>',
   resendApiKey: process.env.RESEND_API_KEY,
-  resendFromEmail: process.env.RESEND_FROM_EMAIL || 'Prosumate <onboarding@resend.dev>',
+  resendFromEmail: process.env.RESEND_FROM_EMAIL || 'Prosumate <system@prosumate.local>',
 
-  smsProvider: process.env.SMS_PROVIDER || 'mock',
+  smsProvider: process.env.SMS_PROVIDER || 'internal',
+  internalVirtualNumber: process.env.INTERNAL_VIRTUAL_NUMBER || '+1 (555) 010-2000',
+  internalInboundSecret: process.env.INTERNAL_INBOUND_SECRET,
   twilioAccountSid: process.env.TWILIO_ACCOUNT_SID,
   twilioAuthToken: process.env.TWILIO_AUTH_TOKEN,
   twilioFromNumber: process.env.TWILIO_FROM_NUMBER,
 
-  paymentProvider: process.env.PAYMENT_PROVIDER || 'mock',
-  aiProvider: process.env.AI_PROVIDER || 'mock',
+  paymentProvider: process.env.PAYMENT_PROVIDER || 'internal',
+  aiProvider: process.env.AI_PROVIDER || 'internal',
 
-  // Automation & n8n
+  // Native automation is the default. The existing webhook fields are kept
+  // for backwards-compatible configuration parsing only.
+  automationEngine: process.env.AUTOMATION_ENGINE || 'internal',
   n8nWebhookUrl: process.env.N8N_WEBHOOK_URL,
 };

@@ -2,6 +2,8 @@ export interface CreateSubscriptionParams {
   locationId: string;
   planId: string;
   paymentMethodId?: string;
+  couponCode?: string;
+  taxRatePercent?: number;
 }
 
 export interface SubscriptionResult {
@@ -13,7 +15,9 @@ export interface SubscriptionResult {
   currentPeriodEnd: string;
   cancelAtPeriodEnd: boolean;
   paymentMethodId?: string | null;
-  provider: 'stripe' | 'mock';
+  provider: 'stripe' | 'mock' | 'internal';
+  invoiceId?: string;
+  settlementMode?: 'internal_sandbox' | 'external';
 }
 
 export interface TopUpWalletParams {
@@ -27,7 +31,9 @@ export interface WalletTopUpResult {
   transactionId: string;
   newBalanceCents: number;
   currency: string;
-  provider: 'stripe' | 'mock';
+  provider: 'stripe' | 'mock' | 'internal';
+  invoicePdfUrl?: string;
+  settlementMode?: 'internal_sandbox' | 'external';
 }
 
 export interface PaymentProvider {

@@ -40,9 +40,14 @@ export async function billingRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const { planId, paymentMethodId } = parseResult.data;
-      await paymentProvider.createSubscription({ locationId, planId, paymentMethodId });
-      const sub = db().subscribeLocation(locationId, planId, paymentMethodId);
+      const { planId, paymentMethodId, couponCode, taxRatePercent } = parseResult.data;
+      const sub = await paymentProvider.createSubscription({
+        locationId,
+        planId,
+        paymentMethodId,
+        couponCode,
+        taxRatePercent,
+      });
 
       return sendSuccess(reply, sub, 200);
     }
@@ -54,8 +59,7 @@ export async function billingRoutes(fastify: FastifyInstance) {
     { preHandler: [tenantGuard, requirePermissions('billing:manage')] },
     async (request, reply) => {
       const { locationId } = request.params;
-      await paymentProvider.cancelSubscription(locationId);
-      const sub = db().cancelLocationSubscription(locationId);
+      const sub = await paymentProvider.cancelSubscription(locationId);
 
       return sendSuccess(reply, sub, 200);
     }
@@ -84,11 +88,17 @@ export async function billingRoutes(fastify: FastifyInstance) {
         throw new ValidationError('Validation failed', parseResult.error.flatten());
       }
 
-      const { amountCents } = parseResult.data;
-      await paymentProvider.topUpWallet({ locationId, amountCents });
-      const wallet = db().topUpCreditWallet(locationId, amountCents);
+      const { amountCents, paymentMethodId } = parseResult.data;
+      const topUp = await paymentProvider.topUpWallet({ locationId, amountCents, paymentMethodId });
+      const wallet = db().getCreditWallet(locationId);
 
-      return sendSuccess(reply, wallet, 200);
+      return sendSuccess(reply, {
+        ...wallet,
+        transactionId: topUp.transactionId,
+        provider: topUp.provider,
+        settlementMode: topUp.settlementMode,
+        invoicePdfUrl: topUp.invoicePdfUrl,
+      }, 200);
     }
   );
 

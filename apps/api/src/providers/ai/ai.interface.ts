@@ -12,7 +12,11 @@ export interface AiGenerateTaskResult {
   result: string;
   tokensUsed: number;
   costCents: number;
-  provider: 'openai' | 'mock' | 'free_tier';
+  provider: 'openai' | 'mock' | 'free_tier' | 'internal';
+  sentiment?: 'positive' | 'neutral' | 'negative' | 'urgent';
+  qualificationScore?: number;
+  intent?: string;
+  recommendedAction?: string;
   metadata?: Record<string, unknown>;
 }
 
